@@ -93,10 +93,10 @@ md"""### Ejercicio 15"""
 df_15 = CSV.read("lynxhare.csv",DataFrame, header=1)
 
 # ╔═╡ 189fc4ab-07ca-450c-adfc-34452007e956
-scatter(df_15[!, "year"], df_15[!, "hare"])
+plot(df_15[!, "year"], df_15[!, "hare"])
 
 # ╔═╡ bd626837-7300-4df7-8db0-ccd421eed4fe
-scatter(df_15[!, "year"], df_15[!, "lynx"])
+plot!(df_15[!, "year"], df_15[!, "lynx"])
 
 # ╔═╡ f0776d1c-30f7-4dc7-a09e-6b048dc1b815
 plot(df_15[!, "lynx"], df_15[!, "hare"])
@@ -111,20 +111,23 @@ function mod_lv(x,p,t)
 end
 
 # ╔═╡ 338ffcd0-8a79-46a8-b471-e6f969ec7336
-h0 = df_15[!, "hare"][1]
+h0 = df_15[:, "hare"][1]
 
 # ╔═╡ 8a9baf9f-d694-437b-9a12-94aeae72f948
-p0 = df_15[!, "lynx"][1]
+p0 = df_15[:, "lynx"][1]
 
 # ╔═╡ 2bee2a99-6ae4-4176-903a-e091fcb5d4bc
 prob_lv = ODEProblem(mod_lv,[h0, p0],(1845, 1935),[0.1, 0.1, 10, 0.1, 0.1])
 
 # ╔═╡ 36aa180b-9a9c-493d-8701-2fee5649de22
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	sol_lv₀ = solve(prob_lv)
 	plot(sol_lv₀, idxs=(1, 2))
 	scatter!(df_15[!, "hare"], df_15[!, "lynx"])
 end
+  ╠═╡ =#
 
 # ╔═╡ 743cf2f0-8b47-4316-b04e-2309342f200b
 begin
@@ -134,13 +137,23 @@ begin
 end 
 
 # ╔═╡ 66ab7a87-d5ed-48a9-8380-5c9ca105ed7b
-costo_lv = build_loss_objective(prob_lv,Tsit5(),L2Loss(hare - x[:, 1]) + L2Loss(lynx - x[:, 2]),Optimization.AutoFiniteDiff(),maxiters=10000,verbose=false)
+costo_lv = build_loss_objective(prob_lv,Tsit5(),L2Loss(1845:1935, hcat(df_15[!, "hare"], df_15[!, "lynx"])), Optimization.AutoFiniteDiff(), prob_generator = (prob,q)->remake(prob,u0=q[1:2],p=q[3:7]), maxiters=10000,verbose=false)
 
 # ╔═╡ bfcfba94-e18a-4d41-b92b-24eb9aee19ec
-optprob_lv = OptimizationProblem(costo_lv,[0.1, 0.1, 10, 0.1, 0.1])
+optprob_lv = OptimizationProblem(costo_lv,[df_15[:, "hare"][1], df_15[:, "lynx"][2], 0.1, 0.1, 10, 0.1, 0.1], ub=[1000,1000,1,1,100,1,1], lb=zeros(7))
 
 # ╔═╡ 1c79bf97-50db-444e-94ce-30393f084e12
-estimated_params = solve(optprob_lv,BFGS())
+estimated_params = solve(optprob_lv,SAMIN(), maxiters=1000)
+
+# ╔═╡ 72f57325-d8e7-4af1-a25a-fd1c7f136ba5
+prob2_lv = ODEProblem(mod_lv,[h0, p0],(1845, 1935),estimated_params)
+
+# ╔═╡ f1e476e6-147a-4c25-a28a-b478898b718b
+begin
+	sol_lv1 = solve(prob2_lv)
+	plot(sol_lv1, idxs=2)
+	scatter!(1845:1935, df_15[!, "hare"])
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2084,5 +2097,7 @@ version = "1.4.1+0"
 # ╠═66ab7a87-d5ed-48a9-8380-5c9ca105ed7b
 # ╠═bfcfba94-e18a-4d41-b92b-24eb9aee19ec
 # ╠═1c79bf97-50db-444e-94ce-30393f084e12
+# ╠═72f57325-d8e7-4af1-a25a-fd1c7f136ba5
+# ╠═f1e476e6-147a-4c25-a28a-b478898b718b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
