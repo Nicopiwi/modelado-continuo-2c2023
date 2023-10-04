@@ -294,7 +294,7 @@ md""" ### Test Costo """
 # ╔═╡ bc841a10-0b43-4d8d-9dd7-d40408e765b3
 
 function test_costo()
-	u₀ = [0.99, 0.01, 0]
+	u₀ = [0.99, 0.01, 0.01]
 	tspan = [start1, end1]
 	params = [0.8, 0.5]
 	sir_prob = ODEProblem(SIR!,u₀,tspan,params)
@@ -322,6 +322,15 @@ function ajustar_sir()
 	return fitted_params
 end
 
+# ╔═╡ 5bdbec8c-a93f-4a69-a167-3d4dde00dfe3
+
+
+# ╔═╡ f67be19d-aee9-4c5c-927a-761c8fdbe73a
+
+
+# ╔═╡ 425d7731-cbcf-486e-ac68-52113f0f34a1
+
+
 # ╔═╡ fdfabbe6-cdb1-4f64-b663-627e7f517510
 
 
@@ -329,10 +338,13 @@ end
 params_sir = ajustar_sir()
 
 # ╔═╡ e96ee638-3078-4869-b318-ff28b440f993
-params_sir
+begin
+sol_grafico = ODEProblem(SIR!, [1-params_sir[1],params_sir[1],0,params_sir[2],params_sir[3]],(start1, end1), params_sir[2:3])
+sol_gf = solve(sol_grafico)
+end
 
 # ╔═╡ d5688e1d-e0bf-4cea-ab50-732e90bed494
-
+plot(sol_gf)
 
 # ╔═╡ 82c4e128-a488-4032-acaf-2b0549cea8f0
 md"""##### Datos Iniciales
@@ -2395,6 +2407,9 @@ version = "1.4.1+1"
 # ╠═bc841a10-0b43-4d8d-9dd7-d40408e765b3
 # ╠═689f9f65-7e51-4526-99cd-52e2c3cfe78f
 # ╠═2d975c53-f949-44f2-b6c3-956bcc4a0b60
+# ╠═5bdbec8c-a93f-4a69-a167-3d4dde00dfe3
+# ╠═f67be19d-aee9-4c5c-927a-761c8fdbe73a
+# ╠═425d7731-cbcf-486e-ac68-52113f0f34a1
 # ╠═fdfabbe6-cdb1-4f64-b663-627e7f517510
 # ╠═aab70191-23d1-42b4-86b3-c9154d1cc5ba
 # ╠═e96ee638-3078-4869-b318-ff28b440f993
