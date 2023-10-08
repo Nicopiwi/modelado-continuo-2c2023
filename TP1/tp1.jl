@@ -114,6 +114,9 @@ end
 # ╔═╡ 6f0415b8-9ae2-49db-9d0f-4728a38bf91f
 wave1PossibleStartIdxs = findWaveStarts(weeklyNewCases.NewCases)
 
+# ╔═╡ af98c3c6-a58c-40c4-87cd-bca3ce30e661
+md""" Podemos elegir a 57 como el comienzo de la primera ola, y 96 como el comienzo de la segunda """
+
 # ╔═╡ 7e56c27c-ba5e-48a4-9793-abad62fa5d83
 function findEnds(wave_values, start)
 	derivative = diff(wave_values)
@@ -163,10 +166,10 @@ md"""Separamos los datos para cada ola de la pandemia"""
 
 # ╔═╡ b8bd7ee6-92f8-44c4-96e7-6d86575025e1
 begin
-	weeklyNewCasesFirstWave = weeklyNewCases[start1:end1, :];
-	weeklyNewCasesSecondWave = weeklyNewCases[start2:end2, :];
-	weeklyNewDeathsFirstWave = weeklyNewCases[start1:end1, :];
-	weeklyNewDeathsSecondWave = weeklyNewCases[start2:end2, :];
+	weeklyNewCasesFirstWave = weeklyNewCases.NewCases[start1:end1];
+	weeklyNewCasesSecondWave = weeklyNewCases.NewCases[start2:end2];
+	weeklyNewDeathsFirstWave = weeklyNewDeaths.NewDeaths[start1:end1];
+	weeklyNewDeathsSecondWave = weeklyNewDeaths.NewDeaths[start2:end2];
 end
 
 # ╔═╡ ddf46cb1-9f4a-43e7-820a-7722a865f0fe
@@ -294,21 +297,21 @@ function costo(solution, tspan, datos, modelo="sir")
 	if (modelo == "sir")
 		β = solution.prob.p[1]
 		predicted_data = β * solution.(tspan[1]:tspan[2], idxs=1) .* solution.(tspan[1]:tspan[2], idxs=2)
-	    loss = sum((predicted_data - datos[:, 2]).^2)
+	    loss = sum((predicted_data - datos).^2)
 
 		return loss 
 		
 	elseif (modelo == "seir")
 		γ = solution.prob.p[3]
 		predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
-	    loss = sum((predicted_data - datos[:, 2]).^2)
+	    loss = sum((predicted_data - datos).^2)
 
 		return loss 
 
 	elseif (modelo == "seirs")
 		γ = solution.prob.p[3]
 		predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
-	    loss = sum((predicted_data - datos[:, 2]).^2)
+	    loss = sum((predicted_data - datos).^2)
 
 		return loss 
 		
@@ -337,17 +340,17 @@ end
 test_costo()
 
 # ╔═╡ 2d975c53-f949-44f2-b6c3-956bcc4a0b60
-function ajustar_sir()
+function ajustar_sir(t0, tf, data)
 	# Consideramos que la cantidad de susceptibles es inicialmente casi la totalidad
 	# de la población. Y que el tiempo promedio entre contagios y de recuperación es 
 	# de una semana aproximadamente
 	params   = [0.99, 1, 1]
 
 	# Creamos un ODEProblem con parámetros iniciales elegidos a nuestro criterio
-	sir_prob     = ODEProblem(SIR!, [params[1], 1-params[1], 0],(start1, end1), params[2:3])
+	sir_prob     = ODEProblem(SIR!, [params[1], 1-params[1], 0],(t0, tf), params[2:3])
 	sir_func     = build_loss_objective(
 		sir_prob, AutoTsit5(Rosenbrock23()),
-		sol->costo(sol, (start1, end1), weeklyNewCasesFirstWave, "sir"), Optimization.AutoFiniteDiff(),
+		sol->costo(sol, (start1, end1), data, "sir"), Optimization.AutoFiniteDiff(),
 		prob_generator = (prob,q)->remake(
 			prob,
 			u0=[
@@ -369,42 +372,23 @@ end
 # ╔═╡ aab70191-23d1-42b4-86b3-c9154d1cc5ba
 begin
 	Random.seed!(global_random_seed)
-	params_sir = ajustar_sir()
+	params_sir = ajustar_sir(start1, end1, weeklyNewCasesFirstWave)
 	params_sir[:]
 end
-
-# ╔═╡ e96ee638-3078-4869-b318-ff28b440f993
-begin
-prob_opt_sir = ODEProblem(SIR!, [params_sir[1],1-params_sir[1],0],(start1, end1), params_sir[2:3])
-sol_opt_sir = solve(prob_opt_sir)
-end
-
-# ╔═╡ d5688e1d-e0bf-4cea-ab50-732e90bed494
-plot(sol_opt_sir, labels=["S" "I" "R"])
-
-# ╔═╡ 6dded1ee-fdfb-4514-9bcd-6068b423fa8b
-begin
-	s_sir = sol_opt_sir.(start1:end1, idxs=1)
-	i_sir = sol_opt_sir.(start1:end1, idxs=2)
-	product = i_sir .* s_sir * params_sir[2]
-	plot(product, label="βSI")
-	scatter!(weeklyNewCasesFirstWave[:,:NewCases], label="Proporción de nuevos infectados por semana")
-end
-
 
 # ╔═╡ 1353ba07-59d1-4511-9fb9-d102d8f141c2
 md""" ## Ajuste SEIR """
 
 # ╔═╡ 21814cf5-40a1-4298-90dc-d4e57fd96eed
-function ajustar_seir()
+function ajustar_seir(t0, tf, data)
 	S0,ρ,β,σ,γ   = [0.999, 0.05, 1, 1, 1]
 	
 	seir_prob     = ODEProblem(
-		SEIR!, [S0, ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(start1, end1), [β,σ,γ])
+		SEIR!, [S0, ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ])
 	
 	seir_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
-		sol->costo(sol, (start1, end1), weeklyNewCasesFirstWave, "seir"), Optimization.AutoFiniteDiff(),
+		sol->costo(sol, (t0, tf), data, "seir"), Optimization.AutoFiniteDiff(),
 		prob_generator = (prob, q) -> remake(
 			prob,
 			u0=[
@@ -426,47 +410,20 @@ end
 # ╔═╡ 99563d42-da05-47ac-bff8-fac927709585
 begin
 	Random.seed!(1234)
-	params_seir = ajustar_seir()
+	params_seir = ajustar_seir(start1, end1, weeklyNewCasesFirstWave)
 	params_seir[:]
-end
-
-# ╔═╡ 8a979e41-1ad6-4755-8c17-7e02c8bbf53f
-begin
-	prob_opt_seir = ODEProblem(SEIR!,
-		[
-			params_seir[1],
-			params_seir[2]*(1-params_seir[1]),
-			1-params_seir[1]-params_seir[2]*(1-params_seir[1]), 
-			0.
-		],
-		(start1, end1), 
-		params_seir[3:5]
-	)
-	sol_opt_seir = solve(prob_opt_seir)
-end
-
-# ╔═╡ 525dbd3f-a9d0-4412-af8b-29c8e4d31614
-plot(sol_opt_seir, label=["S" "E" "I" "R"])
-
-# ╔═╡ d6b4f1cb-4836-4def-82f1-035e0c9244ef
-begin
-	e_seir =  sol_opt_seir.(start1:end1,idxs=2)
-	product_seir = params_seir[5] * e_seir
-	plot(product_seir, label="γE")
-	scatter!(weeklyNewCasesFirstWave[:,:NewCases], label="Proporción de nuevos infectados por semana")
 end
 
 # ╔═╡ 987a37b3-a0f8-4919-9ae1-8525ad9bf6a9
 md""" ## Ajuste SEIRS """
 
 # ╔═╡ 7ea16785-ef95-4e00-8385-600b64b29042
-# TODO: Agregar tspan como parámetro, para poder extenderla para resolver el modelado de las dos olas
-function ajustar_seirs()
-	S0,ρ,β,σ,γ,δ   = [0.99, 0.05, 1, 1, 1, 1]
-	seir_prob     = ODEProblem(SEIRS!, [S0,ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(start1, end1), [β,σ,γ,δ])
+function ajustar_seirs(t0, tf, data)
+	S0,ρ,β,σ,γ,δ   = [0.99, 0.1, 1, 1, 1, 1]
+	seir_prob     = ODEProblem(SEIRS!, [S0,ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ,δ])
 	seir_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
-		sol->costo(sol, (start1, end1), weeklyNewCasesFirstWave, "seirs"), Optimization.AutoFiniteDiff(),
+		sol->costo(sol, (t0, tf), data, "seirs"), Optimization.AutoFiniteDiff(),
 		prob_generator = (prob,q)->remake(
 			prob,
 			u0=[
@@ -480,10 +437,10 @@ function ajustar_seirs()
 	optProb_seir = OptimizationProblem(
 		seir_func, 
 		[S0,ρ,β,σ,γ,δ], 
-		lb=zeros(6),
-		ub=[1,1,10,10,10,10]
+		lb=[0.99, 0, 0, 0, 0, 0],
+		ub=[1,1,14,14,100,2]
 	)
-	fitted_params = solve(optProb_seir,SAMIN(rt=0.98),maxiters=500000)
+	fitted_params = solve(optProb_seir,SAMIN(rt=0.97),maxiters=1000000)
 
 	return fitted_params
 end
@@ -494,35 +451,8 @@ begin
 	TODO: Corregir inestabilidades
 	"""
 	Random.seed!(global_random_seed)
-	params_seirs = ajustar_seirs()
+	params_seirs = ajustar_seirs(start1, end1, weeklyNewCasesFirstWave)
 	params_seirs[:]
-end
-
-# ╔═╡ d6a31338-5942-4463-a4a6-e448b17ddcd8
-begin
-prob_opt_seirs = ODEProblem(
-	SEIRS!,
-	[
-		params_seirs[1],
-		params_seirs[2]*(1-params_seirs[1]),
-		1-params_seirs[1]-params_seirs[2]*(1-params_seirs[1]),
-		0.
-	],
-	(start1, end1),
-	params_seirs[3:6]
-)
-sol_opt_seirs = solve(prob_opt_seirs)
-end
-
-# ╔═╡ 46c621be-011f-4c08-9198-515981dbe6a0
-plot(sol_opt_seirs, label=["S" "E" "I" "R"])
-
-# ╔═╡ 5b8683f6-bbf3-40c5-8082-b294570aa3a6
-begin
-	e_seirs = sol_opt_seirs(start1:end1)
-	product_seirs = params_seirs[5] * e_seirs[2,:]
-	plot(product_seirs, label="γE")
-	scatter!(weeklyNewCasesFirstWave[:,:NewCases], label="Proporción de nuevos infectados por semana")
 end
 
 # ╔═╡ 4e0aaf37-4150-4526-b0fe-707bd8d9602b
@@ -534,7 +464,7 @@ Para cada uno de los modelos analizar:
 + Los parámetros arrojados por el optimizador ¿tienen sentido? (para esto conviene considerar sus inversos). 
 """
 
-# ╔═╡ 9c56ca66-5892-4fad-abb7-4071993cb414
+# ╔═╡ 06f87ef2-f9b1-4a32-8902-fcb4abcf1da6
 md"""
 
 ##### Comparación (respuesta)
@@ -542,6 +472,114 @@ md"""
 TODO: Para responder a las segunda y tercera pregunta, corra los ajustes con varios intentos (seteando semilla antes de comenzar), obtenga los parámetros que minimizan el error del ajuste, realizar la comparación en base al promedio y desvío estándar de los errores. Y para la tercera, solo fijarse en los parámetros que minimizan.
 
 """
+
+# ╔═╡ 9c56ca66-5892-4fad-abb7-4071993cb414
+function reporte(params, modelo, t0, tf, data)
+	_plot_solution = plot()
+	_plot_comparison = plot()
+	sol_costo = -1
+	
+	if (modelo == "sir")
+		prob_fitted = ODEProblem(
+			SIR!,
+			[params[1],1-params[1],0],
+			(start1, end1), params[2:3])
+		
+		sol_fitted = solve(prob_fitted)
+		_plot_solution = plot(sol_fitted, label=["S" "I" "R"])
+
+		susceptibles =  sol_fitted.(t0:tf,idxs=1)
+		infectados =  sol_fitted.(t0:tf,idxs=2)
+		estimacion = params[2] * susceptibles .* infectados
+		_plot_comparison = plot(estimacion, label="βSI")
+		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados por semana")
+
+		sol_costo = costo(sol_fitted, (t0, tf), data, "sir")
+
+		
+	elseif (modelo == "seir")
+		prob_fitted = ODEProblem(SEIR!,
+			[
+				params[1],
+				params[2]*(1-params[1]),
+				1-params[1]-params[2]*(1-params[1]), 
+				0.
+			],
+			(t0, tf), 
+			params[3:5]
+		)
+		sol_fitted = solve(prob_fitted)
+		_plot_solution = plot(sol_fitted, label=["S" "E" "I" "R"])
+
+		expuestos =  sol_fitted.(t0:tf,idxs=2)
+		estimacion = params[5] * expuestos
+		_plot_comparison = plot(estimacion, label="γE")
+		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados por semana")
+
+		sol_costo = costo(sol_fitted, (t0, tf), data, "sir")
+
+
+	elseif (modelo == "seirs")
+		prob_fitted = ODEProblem(
+			SEIRS!,
+			[
+				params[1],
+				params[2]*(1-params[1]),
+				1-params[1]-params[2]*(1-params[1]),
+				0.
+			],
+			(t0, tf),
+			params_seirs[3:6]
+		)
+		sol_fitted = solve(prob_fitted)
+
+		expuestos = sol_fitted(t0:tf)
+		estimacion = params[5] * expuestos[2,:]
+		_plot_comparison = plot(estimacion, label="γE")
+		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados por semana")
+		
+		_plot_solution = plot(sol_fitted, label=["S" "E" "I" "R"])
+		sol_costo = costo(sol_fitted, (t0, tf), data, "sir")		
+	end
+
+	return _plot_solution, _plot_comparison, sol_costo
+end
+
+# ╔═╡ d89652d0-d82c-4d23-b9ca-2b96f8dee98e
+md""" #### Rendimiento SIR """
+
+# ╔═╡ fa9ae04c-94df-42eb-ae42-36abe0724a95
+plot_sol_sir, plot_comparison_sir, costo_sir = reporte(params_sir, "sir", start1, end1, weeklyNewCasesFirstWave)
+
+# ╔═╡ deab9ac9-8925-4bec-b347-9dc90f4ed33b
+plot_sol_sir
+
+# ╔═╡ fc20f1f9-03fe-40a3-b436-285a21f4cb8d
+plot_comparison_sir
+
+# ╔═╡ c4c1f2e2-1f41-404a-913e-222f5c40c84c
+md""" #### Rendimiento SEIR """
+
+# ╔═╡ 11f08c24-ae75-46af-9380-8069a6a8fe03
+plot_sol_seir, plot_comparison_seir, costo_seir = reporte(params_seir, "seir", start1, end1, weeklyNewCasesFirstWave)
+
+# ╔═╡ 96499d60-6da0-4b3f-a6eb-522328f76130
+plot_sol_seir
+
+# ╔═╡ 77c8010b-4c32-43f2-a000-9a59f2a2d8ea
+plot_comparison_seir
+
+# ╔═╡ 030111d0-8b5e-4c42-8bf9-79ccf2de0a49
+md""" #### Rendimiento SEIRS """
+
+# ╔═╡ a3154bd8-a747-4542-a70e-eeadccae9891
+plot_sol_seirs, plot_comparison_seirs, costo_seirs = reporte(params_seirs, "seirs", start1, end1, weeklyNewCasesFirstWave)
+
+# ╔═╡ d7d7be4c-367c-47bc-9bda-5c52cb99b32d
+plot_sol_seirs
+
+# ╔═╡ f8672f45-1ae6-4275-a9f1-2c50a29e4f6a
+plot_comparison_seirs
 
 # ╔═╡ 98c013a6-e3c0-43e0-a193-fb259aad722a
 md""" ### Dos olas
@@ -551,7 +589,20 @@ Finalmente, con el modelo SEIRS se puede intentar ajustar conjuntamente las dos 
 
 
 # ╔═╡ 717fb42e-d967-4548-8bba-72f32af5107f
+begin
+	Random.seed!(global_random_seed)
+	params_seirs_2_waves = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2])
+	params_seirs_2_waves[:]
+end
 
+# ╔═╡ 409901e6-f7ae-4e9d-b7bf-a050931bb954
+plot_sol_2_waves, plot_comparison_2_waves, costo_2_waves = reporte(params_seirs_2_waves, "seirs", start1, end2, weeklyNewCases.NewCases[start1:end2])
+
+# ╔═╡ 31436583-d97b-4815-bd02-bb50f0a12834
+plot_sol_2_waves
+
+# ╔═╡ f576223d-cdbe-4939-bc4a-96a226e002ca
+plot_comparison_2_waves
 
 # ╔═╡ 1a391e49-eba4-49ca-a16b-f37cc50bb85b
 md""" ## Segunda Parte
@@ -2822,6 +2873,7 @@ version = "1.4.1+1"
 # ╠═2cea38cf-5235-446a-922c-2a1a3ad4815f
 # ╠═9f046c44-db85-48a3-a59a-b5c258a43ca4
 # ╠═6f0415b8-9ae2-49db-9d0f-4728a38bf91f
+# ╠═af98c3c6-a58c-40c4-87cd-bca3ce30e661
 # ╠═7e56c27c-ba5e-48a4-9793-abad62fa5d83
 # ╠═65f8859f-fb9d-4c4e-b53f-2eb3ebdb0e8b
 # ╠═698ce621-766b-40bb-9a3d-0fd2ae6f13f4
@@ -2849,25 +2901,32 @@ version = "1.4.1+1"
 # ╠═689f9f65-7e51-4526-99cd-52e2c3cfe78f
 # ╠═2d975c53-f949-44f2-b6c3-956bcc4a0b60
 # ╠═aab70191-23d1-42b4-86b3-c9154d1cc5ba
-# ╠═e96ee638-3078-4869-b318-ff28b440f993
-# ╠═d5688e1d-e0bf-4cea-ab50-732e90bed494
-# ╠═6dded1ee-fdfb-4514-9bcd-6068b423fa8b
 # ╟─1353ba07-59d1-4511-9fb9-d102d8f141c2
 # ╠═21814cf5-40a1-4298-90dc-d4e57fd96eed
 # ╠═99563d42-da05-47ac-bff8-fac927709585
-# ╠═8a979e41-1ad6-4755-8c17-7e02c8bbf53f
-# ╠═525dbd3f-a9d0-4412-af8b-29c8e4d31614
-# ╠═d6b4f1cb-4836-4def-82f1-035e0c9244ef
 # ╟─987a37b3-a0f8-4919-9ae1-8525ad9bf6a9
 # ╠═7ea16785-ef95-4e00-8385-600b64b29042
 # ╠═f3d16260-c9d1-4667-b209-433b31b9e47a
-# ╠═d6a31338-5942-4463-a4a6-e448b17ddcd8
-# ╠═46c621be-011f-4c08-9198-515981dbe6a0
-# ╠═5b8683f6-bbf3-40c5-8082-b294570aa3a6
 # ╟─4e0aaf37-4150-4526-b0fe-707bd8d9602b
+# ╠═06f87ef2-f9b1-4a32-8902-fcb4abcf1da6
 # ╠═9c56ca66-5892-4fad-abb7-4071993cb414
+# ╠═d89652d0-d82c-4d23-b9ca-2b96f8dee98e
+# ╠═fa9ae04c-94df-42eb-ae42-36abe0724a95
+# ╠═deab9ac9-8925-4bec-b347-9dc90f4ed33b
+# ╠═fc20f1f9-03fe-40a3-b436-285a21f4cb8d
+# ╠═c4c1f2e2-1f41-404a-913e-222f5c40c84c
+# ╠═11f08c24-ae75-46af-9380-8069a6a8fe03
+# ╠═96499d60-6da0-4b3f-a6eb-522328f76130
+# ╠═77c8010b-4c32-43f2-a000-9a59f2a2d8ea
+# ╠═030111d0-8b5e-4c42-8bf9-79ccf2de0a49
+# ╠═a3154bd8-a747-4542-a70e-eeadccae9891
+# ╠═d7d7be4c-367c-47bc-9bda-5c52cb99b32d
+# ╠═f8672f45-1ae6-4275-a9f1-2c50a29e4f6a
 # ╟─98c013a6-e3c0-43e0-a193-fb259aad722a
 # ╠═717fb42e-d967-4548-8bba-72f32af5107f
+# ╠═409901e6-f7ae-4e9d-b7bf-a050931bb954
+# ╠═31436583-d97b-4815-bd02-bb50f0a12834
+# ╠═f576223d-cdbe-4939-bc4a-96a226e002ca
 # ╟─1a391e49-eba4-49ca-a16b-f37cc50bb85b
 # ╠═faa9e056-2c53-4cd3-a24e-15dd593beaa3
 # ╟─00000000-0000-0000-0000-000000000001
