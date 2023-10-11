@@ -83,15 +83,18 @@ md""" ### Agrupamiento por semanas """
 
 # ╔═╡ 47cb9fd6-7f44-46a2-ac18-f47f9a1af7e5
 begin
+	dataCases.Index = axes(dataCases, 1)
+	dataDeaths.Index = axes(dataDeaths, 1)
+	
 	dataCases[!, :Year] = Dates.year.(dataCases.Date_reported);
 	dataCases[!, :Week] = Dates.week.(dataCases.Date_reported);
 	dataDeaths[!, :Year] = Dates.year.(dataDeaths.Date_reported);
 	dataDeaths[!, :Week] = Dates.week.(dataDeaths.Date_reported);
 
-	dataCases[!, :YearWeek] = string.(dataCases.Year, "-W", dataCases.Week);
-	dataDeaths[!, :YearWeek] = string.(dataDeaths.Year, "-W", dataDeaths.Week);
-	weeklyNewDeaths = combine(groupby(dataDeaths, :YearWeek), :New_deaths => sum => :NewDeaths);
-	weeklyNewCases = combine(groupby(dataCases, :YearWeek), :New_cases => sum => :NewCases);
+	dataCases[!, :NoWeek] = dataCases.Index .÷ 7;
+	dataDeaths[!, :NoWeek] = dataDeaths.Index .÷ 7;
+	weeklyNewDeaths = combine(groupby(dataDeaths, :NoWeek), :New_deaths => sum => :NewDeaths);
+	weeklyNewCases = combine(groupby(dataCases, :NoWeek), :New_cases => sum => :NewCases);
 end
 
 # ╔═╡ ba08e6e3-5a2d-4351-a1c8-e3a70cf677cf
@@ -104,7 +107,7 @@ plot(weeklyNewCases.NewCases)
 md""" Estimamos el comienzo y final de cada ola. Para obtener el comienzo de cada ola, obtendremos los puntos donde la derivada sea mayor a un threshold, y eligiremos dos puntos representativos a ojo. Para los finales, obtendremos de los puntos que vienen después, el primero que posea una derivada con valor absoluto menor a uno dado, y concavidad no negativa (no queremos elegir un pico máximo)."""
 
 # ╔═╡ 9f046c44-db85-48a3-a59a-b5c258a43ca4
-function findWaveStarts(wave_values, threshold=0.001)
+function findWaveStarts(wave_values, threshold=0.0005)
 	derivative = diff(wave_values)
 	
 	wave_starts = findall(x -> abs(x) > threshold, derivative)
@@ -115,7 +118,7 @@ end
 wave1PossibleStartIdxs = findWaveStarts(weeklyNewCases.NewCases)
 
 # ╔═╡ af98c3c6-a58c-40c4-87cd-bca3ce30e661
-md""" Podemos elegir a 57 como el comienzo de la primera ola, y 96 como el comienzo de la segunda """
+md""" Podemos elegir a 55 como el comienzo de la primera ola, y 92 como el comienzo de la segunda """
 
 # ╔═╡ 7e56c27c-ba5e-48a4-9793-abad62fa5d83
 function findEnds(wave_values, start)
@@ -130,9 +133,9 @@ end
 
 # ╔═╡ 65f8859f-fb9d-4c4e-b53f-2eb3ebdb0e8b
 begin
-	start1 = 57
+	start1 = 55
 	end1 = findEnds(weeklyNewCases.NewCases, start1)
-	start2 = 96
+	start2 = 92
 	end2 = findEnds(weeklyNewCases.NewCases, start2)
 end
 
@@ -143,13 +146,13 @@ end1
 md""" ### Primera Ola """
 
 # ╔═╡ 51d7fc7c-dc38-4c3c-a816-05d7c50a9f05
-plot(weeklyNewCases.YearWeek[start1:end1],weeklyNewCases.NewCases[start1:end1])
+plot(weeklyNewCases.NoWeek[start1:end1],weeklyNewCases.NewCases[start1:end1])
 
 # ╔═╡ 54b96729-a475-494b-86f8-a2188593ce33
 md"""### Segunda Ola """
 
 # ╔═╡ 687b1582-20d3-44e4-b912-7a29703ff2b7
-plot(weeklyNewCases.YearWeek[start2:end2],weeklyNewCases.NewCases[start2:end2])
+plot(weeklyNewCases.NoWeek[start2:end2],weeklyNewCases.NewCases[start2:end2])
 
 # ╔═╡ 0c01dc2c-f8bd-48ff-a56c-250a0a260fd2
 md""" ### Grafico general de las olas seleccionadas"""
@@ -340,7 +343,7 @@ end
 test_costo()
 
 # ╔═╡ 2d975c53-f949-44f2-b6c3-956bcc4a0b60
-function ajustar_sir(t0, tf, data)
+function ajustar_sir(t0, tf, data, costo_func)
 	# Consideramos que la cantidad de susceptibles es inicialmente casi la totalidad
 	# de la población. Y que el tiempo promedio entre contagios y de recuperación es 
 	# de una semana aproximadamente
@@ -350,7 +353,7 @@ function ajustar_sir(t0, tf, data)
 	sir_prob     = ODEProblem(SIR!, [params[1], 1-params[1], 0],(t0, tf), params[2:3])
 	sir_func     = build_loss_objective(
 		sir_prob, AutoTsit5(Rosenbrock23()),
-		sol->costo(sol, (start1, end1), data, "sir"), Optimization.AutoFiniteDiff(),
+		sol->costo_func(sol, (start1, end1), data, "sir"), Optimization.AutoFiniteDiff(),
 		prob_generator = (prob,q)->remake(
 			prob,
 			u0=[
@@ -372,7 +375,7 @@ end
 # ╔═╡ aab70191-23d1-42b4-86b3-c9154d1cc5ba
 begin
 	Random.seed!(global_random_seed)
-	params_sir = ajustar_sir(start1, end1, weeklyNewCasesFirstWave)
+	params_sir = ajustar_sir(start1, end1, weeklyNewCasesFirstWave, costo)
 	params_sir[:]
 end
 
@@ -380,7 +383,7 @@ end
 md""" ## Ajuste SEIR """
 
 # ╔═╡ 21814cf5-40a1-4298-90dc-d4e57fd96eed
-function ajustar_seir(t0, tf, data)
+function ajustar_seir(t0, tf, data, costo_func)
 	S0,ρ,β,σ,γ   = [0.999, 0.05, 1, 1, 1]
 	
 	seir_prob     = ODEProblem(
@@ -388,7 +391,7 @@ function ajustar_seir(t0, tf, data)
 	
 	seir_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
-		sol->costo(sol, (t0, tf), data, "seir"), Optimization.AutoFiniteDiff(),
+		sol->costo_func(sol, (t0, tf), data, "seir"), Optimization.AutoFiniteDiff(),
 		prob_generator = (prob, q) -> remake(
 			prob,
 			u0=[
@@ -410,7 +413,7 @@ end
 # ╔═╡ 99563d42-da05-47ac-bff8-fac927709585
 begin
 	Random.seed!(1234)
-	params_seir = ajustar_seir(start1, end1, weeklyNewCasesFirstWave)
+	params_seir = ajustar_seir(start1, end1, weeklyNewCasesFirstWave, costo)
 	params_seir[:]
 end
 
@@ -418,12 +421,12 @@ end
 md""" ## Ajuste SEIRS """
 
 # ╔═╡ 7ea16785-ef95-4e00-8385-600b64b29042
-function ajustar_seirs(t0, tf, data)
+function ajustar_seirs(t0, tf, data, costo_func)
 	S0,ρ,β,σ,γ,δ   = [0.99, 0.1, 1, 1, 1, 1]
 	seir_prob     = ODEProblem(SEIRS!, [S0,ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ,δ])
-	seir_func     = build_loss_objective(
+	seirs_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
-		sol->costo(sol, (t0, tf), data, "seirs"), Optimization.AutoFiniteDiff(),
+		sol->costo_func(sol, (t0, tf), data, "seirs"), Optimization.AutoFiniteDiff(),
 		prob_generator = (prob,q)->remake(
 			prob,
 			u0=[
@@ -435,7 +438,7 @@ function ajustar_seirs(t0, tf, data)
 		)
 	)
 	optProb_seir = OptimizationProblem(
-		seir_func, 
+		seirs_func, 
 		[S0,ρ,β,σ,γ,δ], 
 		lb=[0.99, 0, 0, 0, 0, 0],
 		ub=[1,1,14,14,100,2]
@@ -451,7 +454,7 @@ begin
 	TODO: Corregir inestabilidades
 	"""
 	Random.seed!(global_random_seed)
-	params_seirs = ajustar_seirs(start1, end1, weeklyNewCasesFirstWave)
+	params_seirs = ajustar_seirs(start1, end1, weeklyNewCasesFirstWave, costo)
 	params_seirs[:]
 end
 
@@ -474,7 +477,7 @@ TODO: Para responder a las segunda y tercera pregunta, corra los ajustes con var
 """
 
 # ╔═╡ 9c56ca66-5892-4fad-abb7-4071993cb414
-function reporte(params, modelo, t0, tf, data)
+function reporte(params, modelo, t0, tf, data, costo_func)
 	_plot_solution = plot()
 	_plot_comparison = plot()
 	sol_costo = -1
@@ -494,7 +497,7 @@ function reporte(params, modelo, t0, tf, data)
 		_plot_comparison = plot(estimacion, label="βSI")
 		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados por semana")
 
-		sol_costo = costo(sol_fitted, (t0, tf), data, "sir")
+		sol_costo = costo_func(sol_fitted, (t0, tf), data, "sir")
 
 		
 	elseif (modelo == "seir")
@@ -516,7 +519,7 @@ function reporte(params, modelo, t0, tf, data)
 		_plot_comparison = plot(estimacion, label="γE")
 		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados por semana")
 
-		sol_costo = costo(sol_fitted, (t0, tf), data, "sir")
+		sol_costo = costo_func(sol_fitted, (t0, tf), data, "sir")
 
 
 	elseif (modelo == "seirs")
@@ -539,7 +542,7 @@ function reporte(params, modelo, t0, tf, data)
 		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados por semana")
 		
 		_plot_solution = plot(sol_fitted, label=["S" "E" "I" "R"])
-		sol_costo = costo(sol_fitted, (t0, tf), data, "sir")		
+		sol_costo = costo_func(sol_fitted, (t0, tf), data, "sir")		
 	end
 
 	return _plot_solution, _plot_comparison, sol_costo
@@ -549,7 +552,7 @@ end
 md""" #### Rendimiento SIR """
 
 # ╔═╡ fa9ae04c-94df-42eb-ae42-36abe0724a95
-plot_sol_sir, plot_comparison_sir, costo_sir = reporte(params_sir, "sir", start1, end1, weeklyNewCasesFirstWave)
+plot_sol_sir, plot_comparison_sir, costo_sir = reporte(params_sir, "sir", start1, end1, weeklyNewCasesFirstWave, costo)
 
 # ╔═╡ deab9ac9-8925-4bec-b347-9dc90f4ed33b
 plot_sol_sir
@@ -561,7 +564,7 @@ plot_comparison_sir
 md""" #### Rendimiento SEIR """
 
 # ╔═╡ 11f08c24-ae75-46af-9380-8069a6a8fe03
-plot_sol_seir, plot_comparison_seir, costo_seir = reporte(params_seir, "seir", start1, end1, weeklyNewCasesFirstWave)
+plot_sol_seir, plot_comparison_seir, costo_seir = reporte(params_seir, "seir", start1, end1, weeklyNewCasesFirstWave, costo)
 
 # ╔═╡ 96499d60-6da0-4b3f-a6eb-522328f76130
 plot_sol_seir
@@ -573,7 +576,7 @@ plot_comparison_seir
 md""" #### Rendimiento SEIRS """
 
 # ╔═╡ a3154bd8-a747-4542-a70e-eeadccae9891
-plot_sol_seirs, plot_comparison_seirs, costo_seirs = reporte(params_seirs, "seirs", start1, end1, weeklyNewCasesFirstWave)
+plot_sol_seirs, plot_comparison_seirs, costo_seirs = reporte(params_seirs, "seirs", start1, end1, weeklyNewCasesFirstWave, costo)
 
 # ╔═╡ d7d7be4c-367c-47bc-9bda-5c52cb99b32d
 plot_sol_seirs
@@ -591,12 +594,12 @@ Finalmente, con el modelo SEIRS se puede intentar ajustar conjuntamente las dos 
 # ╔═╡ 717fb42e-d967-4548-8bba-72f32af5107f
 begin
 	Random.seed!(global_random_seed)
-	params_seirs_2_waves = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2])
+	params_seirs_2_waves = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2], costo)
 	params_seirs_2_waves[:]
 end
 
 # ╔═╡ 409901e6-f7ae-4e9d-b7bf-a050931bb954
-plot_sol_2_waves, plot_comparison_2_waves, costo_2_waves = reporte(params_seirs_2_waves, "seirs", start1, end2, weeklyNewCases.NewCases[start1:end2])
+plot_sol_2_waves, plot_comparison_2_waves, costo_2_waves = reporte(params_seirs_2_waves, "seirs", start1, end2, weeklyNewCases.NewCases[start1:end2], costo)
 
 # ╔═╡ 31436583-d97b-4815-bd02-bb50f0a12834
 plot_sol_2_waves
@@ -637,7 +640,81 @@ Cada una de las alternativas anteriores se enfoca en algún aspecto puntual con 
 
 
 # ╔═╡ faa9e056-2c53-4cd3-a24e-15dd593beaa3
+md""" ### Segunda Parte """
 
+# ╔═╡ 6a4ea7d3-6c16-4530-94a1-ee17a157fc2d
+function costo_robusto(solution, tspan, datos, modelo="sir")
+    """
+    sol: Solucion a un ODEProblem
+    tiempo: Vector de tiempos
+    datos: Datos correspondientes al vector de tiempos indicados. Deben representar I
+    modelo: Representa el modelo a ajustar la cantidad de infectados
+    """
+    if any((!SciMLBase.successful_retcode(s.retcode) for s in solution))
+        return Inf
+    end 
+    if (modelo == "sir")
+        β = solution.prob.p[1]
+        predicted_data = β * solution.(tspan[1]:tspan[2], idxs=1) .* solution.(tspan[1]:tspan[2], idxs=2)
+        diff_datos = diff(datos)
+    	diff_pred = diff(predicted_data)   
+        loss = 0.1*sum((predicted_data - datos).^2)+0.9*(sum((diff_pred- diff_datos).^2))
+
+        return loss 
+        
+    elseif (modelo == "seir")
+        γ = solution.prob.p[3]
+        predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
+        loss = sum((predicted_data - datos).^2)
+
+		diff_datos = diff(datos)
+    	diff_pred = diff(predicted_data)   
+        loss = 0.5*sum((predicted_data - datos).^2)+0.5*(sum((diff_pred- diff_datos).^2))
+
+        return loss 
+
+    elseif (modelo == "seirs")
+        γ = solution.prob.p[3]
+        predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
+        loss = sum((predicted_data - datos).^2)
+
+		diff_datos = diff(datos)
+    	diff_pred = diff(predicted_data)   
+        loss = 0.75*sum((predicted_data - datos).^2)+0.25*(sum((diff_pred- diff_datos).^2))
+
+        return loss 
+        
+    end
+end
+
+# ╔═╡ 8d7cc493-94eb-4f0e-94a1-be8cab97488a
+begin
+	Random.seed!(global_random_seed)
+	params_sir_robusto = ajustar_sir(start1, end1, weeklyNewCasesFirstWave, costo_robusto)
+	params_sir_robusto[:]
+end
+
+# ╔═╡ fd33fce0-6451-4d8a-a72e-2be8ed38e208
+plot_sol_sir_robusto, plot_comparison_sir_robusto, costo_sir_robusto = reporte(params_sir_robusto, "sir", start1, end1, weeklyNewCasesFirstWave, costo_robusto)
+
+# ╔═╡ 7d6a91c6-feae-48ab-9cae-2a70f869f70d
+plot_sol_sir_robusto
+
+# ╔═╡ 34cf0e49-fdae-4c2e-83c5-eb2f33088db3
+plot_comparison_sir_robusto
+
+# ╔═╡ bb21d4a8-73b8-4ef9-a20a-3066db9c774c
+begin
+	Random.seed!(global_random_seed)
+	params_seirs_2_waves_robusto = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2], costo_robusto)
+	params_seirs_2_waves_robusto[:]
+end
+
+# ╔═╡ 37ad8d38-e5e2-4e35-9dbf-773cac0c6cb5
+plot_sol_2_waves_robusto, plot_comparison_2_waves_robusto, costo_2_waves_robusto = reporte(params_seirs_2_waves_robusto, "seirs", start1, end2, weeklyNewCases.NewCases[start1:end2], costo_robusto)
+
+# ╔═╡ 88780d2f-5f73-48c3-8c55-9dbf0b2bb22b
+plot_comparison_2_waves_robusto
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2929,5 +3006,13 @@ version = "1.4.1+1"
 # ╠═f576223d-cdbe-4939-bc4a-96a226e002ca
 # ╟─1a391e49-eba4-49ca-a16b-f37cc50bb85b
 # ╠═faa9e056-2c53-4cd3-a24e-15dd593beaa3
+# ╠═6a4ea7d3-6c16-4530-94a1-ee17a157fc2d
+# ╠═8d7cc493-94eb-4f0e-94a1-be8cab97488a
+# ╠═fd33fce0-6451-4d8a-a72e-2be8ed38e208
+# ╠═7d6a91c6-feae-48ab-9cae-2a70f869f70d
+# ╠═34cf0e49-fdae-4c2e-83c5-eb2f33088db3
+# ╠═bb21d4a8-73b8-4ef9-a20a-3066db9c774c
+# ╠═37ad8d38-e5e2-4e35-9dbf-773cac0c6cb5
+# ╠═88780d2f-5f73-48c3-8c55-9dbf0b2bb22b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
