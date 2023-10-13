@@ -413,7 +413,7 @@ function ajustar_seir(t0, tf, data, costo_func)
 	S0,ρ,β,σ,γ   = [0.999, 0.1, 1, 1, 1]
 	
 	seir_prob     = ODEProblem(
-		SEIR!, [S0, ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ],abstol=1e-14,reltol=1e-10)
+		SEIR!, [S0, ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ])
 	
 	seir_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
@@ -499,7 +499,7 @@ En los tres casos, se ven gráficos adecuados, gracias a que hemos ajustado, med
 - Cotas inferiores
 - Cotas superiores
 
-Para determinar cual permite obtener un menor error de ajuste, nos basamos en el costo final obtenido con los parámetros ya ajustados. El SEIR fue el modelo que mejor ajustó a los datos (ver abajo). Esto puede parecer contradictorio, ya que el SEIRS tiene más parámetros. Y por lo tanto, más grados de libertad. Sin embargo, agrega más mínimos locales. Además, al ajustar una sóla ola, puede ser que el efecto de perder la inmunidad no sea muy relevante los datos.
+Para determinar cual permite obtener un menor error de ajuste, nos basamos en el costo final obtenido con los parámetros ya ajustados. El SEIR fue el modelo que mejor ajustó a los datos (ver abajo), aunque en muchas ocasiones, al variar los hiperparámetros, el SIR ajustaba mejor. Esto puede parecer contradictorio, ya que el SEIRS tiene más parámetros. Y por lo tanto, más grados de libertad. Sin embargo, agrega más mínimos locales. Además, al ajustar una sóla ola, puede ser que el efecto de perder la inmunidad no sea muy relevante los datos.
 Igualmente, los resultados fueron obtenidos a partir de varios intentos de nuestra parte de mejorar el ajuste, por lo que no podemos afirmar cuál es el que mejor ajuste tiene. Podríamos, haber realizado una búsqueda sistemática de hiperparámetros, pero la misma sería bastante costosa.
 
 En cuanto a si los resultados obtenidos tienen sentido, los resultados parecen indicar que el modelo ajusta mejor con parametros que no parecen estar relacionados con las ideas aqui descriptas. Para las tasas cuyo inverso determina el tiempo medio en semanas de alguna caracerística que queramos modelar, en general les asignamos un rango de búsqueda de entre 0 y algún valor mayor a 10. Y han aparecido valores relativamente altos. Por ejemplo en el SEIR, que es el modelo que mejor ajustó, β (tasa de transmición), σ (tasa de recuperación) y γ (tasa de exposición) con valores de alrededor de 7. Tomando inversos, nos da que aproximadamente el tiempo medio entre contagios, recuperación e incubación es de un día. Lo cual no es lo que se ha reflejado en la pandemia según datos conocidos. Lo cual puede tener sentido pues cuando uno disminuye el tiempo medio de contagio o tiempo de incubacion, le permite al modelo una variabilidad mucho mayor, para ajustar una sóla ola.
@@ -586,7 +586,7 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 				0.
 			],
 			(t0, tf),
-			params_seirs[3:6],abstol=1e-14,reltol=1e-10
+			params_seirs[3:6],
 		)
 		sol_fitted = solve(prob_fitted)
 
@@ -859,6 +859,9 @@ plot_comparison_subregistro
 
 # ╔═╡ b0634992-6c0b-4bb1-bc74-56600a394549
 plot_sol_subregistro
+
+# ╔═╡ 4b7546e4-1ad2-4be9-9d43-46b7caa54175
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -3183,5 +3186,6 @@ version = "1.4.1+1"
 # ╠═b2ba4427-5dcb-482f-ad6c-aa97ee9ef2d3
 # ╠═68f02d18-8767-4b52-9eab-592ede3cb181
 # ╠═b0634992-6c0b-4bb1-bc74-56600a394549
+# ╠═4b7546e4-1ad2-4be9-9d43-46b7caa54175
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
