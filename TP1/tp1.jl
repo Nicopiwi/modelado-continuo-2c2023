@@ -98,7 +98,7 @@ begin
 end
 
 # ╔═╡ ba08e6e3-5a2d-4351-a1c8-e3a70cf677cf
-md""" ### Graficamos los casos en funcion a la semana"""
+md""" ### Graficamos los casos en función a la semana"""
 
 # ╔═╡ 0ec43ade-b2d1-419c-9dd8-05a3fba3dc57
 plot(weeklyNewCases.NewCases)
@@ -219,6 +219,39 @@ function SEIRS!(du,u,p,t)
     du[4] = σ*I - δ*R
 end
 
+# ╔═╡ e1e16eac-209f-448c-a9d4-fffaf72e4f25
+md""" ### Modelos utilizados en la segunda parte"""
+
+# ╔═╡ 3420921c-76f6-4dec-aab2-567acf283cd0
+md""" 
+#### SEIR con consideracion de un subregistro 
+
+En este caso, los datos de nuevos casos por semana serán aproximados por α * γ * E
+
+"""
+
+# ╔═╡ e60fa04d-17cd-4756-9e84-5cc03f2116c7
+md""" 
+$$\left\{\begin{array}{rcl}
+	\dot{S} &=& -\beta S(I_r + I_n) \\ 
+	\dot{E} &=& \beta S(I_r + I_n) - \gamma E \\
+	\dot{I_r} &=& \alpha(\gamma E -\sigma (I_r + I_n)) \\
+	\dot{I_n} &=& (1-\alpha)(\gamma E -\sigma (I_r + I_n)) \\
+	\dot{R} &=& \sigma (I_r + I_n)
+\end{array}\right.$$ 
+"""
+
+# ╔═╡ fc0c1c52-edc3-4455-840e-0a24cae3727e
+function Subregistro!(du,u,p,t)
+    β,σ,γ,α = p
+	S, E, I_r, I_n, R = u
+    du[1] = -β * S * (I_r + I_n)
+    du[2] = β * S * (I_r + I_n) - γ * E
+    du[3] = σ * (γ * E - σ * (I_r + I_n))
+    du[4] = (1-σ) * (γ * E - σ * (I_r + I_n))
+	du[5] = σ * (I_r + I_n)
+end
+
 # ╔═╡ 7ac39268-0555-4906-bd84-e1d1185c7814
 md""" ## Primera Parte
 En principio intentaremos ajustar sólo la primera ola de la epidemia, con cada uno de los modelos. Para ello necesitaremos: 
@@ -277,26 +310,41 @@ function costo(solution, tspan, datos, modelo="sir")
 		
 	if (modelo == "sir")
 		β = solution.prob.p[1]
-		predicted_data = β * solution.(tspan[1]:tspan[2], idxs=1) .* solution.(tspan[1]:tspan[2], idxs=2)
+		S = solution.(tspan[1]:tspan[2], idxs=1)
+		I = solution.(tspan[1]:tspan[2], idxs=2)
+		predicted_data = β * S .* I 
 	    loss = sum((predicted_data - datos).^2)
 
 		return loss 
 		
 	elseif (modelo == "seir")
 		γ = solution.prob.p[3]
-		predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
+		E = solution.(tspan[1]:tspan[2], idxs=2)
+		predicted_data = γ * E
 	    loss = sum((predicted_data - datos).^2)
 
 		return loss 
 
 	elseif (modelo == "seirs")
 		γ = solution.prob.p[3]
-		predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
+		E = solution.(tspan[1]:tspan[2], idxs=2)
+		predicted_data = γ * E
 	    loss = sum((predicted_data - datos).^2)
 
-		return loss 
-		
+		return loss
+
+	# Modelos para la segunda parte
+	elseif (modelo == "subregistro")
+		γ = solution.prob.p[3]
+		α = solution.prob.p[4]
+		E = solution.(tspan[1]:tspan[2], idxs=2)
+
+		predicted_data = α * γ * E
+	    loss = sum((predicted_data - datos).^2)
+
+		return loss
 	end
+	
 end	
 
 # ╔═╡ d38f2c0f-1bb0-4113-9dbb-d407ab8ea96f
@@ -328,7 +376,7 @@ function ajustar_sir(t0, tf, data, costo_func)
 	params   = [0.99, 1, 1]
 
 	# Creamos un ODEProblem con parámetros iniciales elegidos a nuestro criterio
-	sir_prob     = ODEProblem(SIR!, [params[1], 1-params[1], 0],(t0, tf), params[2:3])
+	sir_prob     = ODEProblem(SIR!, [params[1], 1-params[1], 0],(t0, tf), params[2:3], abstol=1e-14,reltol=1e-10)
 	sir_func     = build_loss_objective(
 		sir_prob, AutoTsit5(Rosenbrock23()),
 		sol->costo_func(sol, (start1, end1), data, "sir"), Optimization.AutoFiniteDiff(),
@@ -362,10 +410,10 @@ md""" ## Ajuste SEIR """
 
 # ╔═╡ 21814cf5-40a1-4298-90dc-d4e57fd96eed
 function ajustar_seir(t0, tf, data, costo_func)
-	S0,ρ,β,σ,γ   = [0.999, 0.05, 1, 1, 1]
+	S0,ρ,β,σ,γ   = [0.999, 0.1, 1, 1, 1]
 	
 	seir_prob     = ODEProblem(
-		SEIR!, [S0, ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ])
+		SEIR!, [S0, ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ],abstol=1e-14,reltol=1e-10)
 	
 	seir_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
@@ -401,7 +449,7 @@ md""" ## Ajuste SEIRS """
 # ╔═╡ 7ea16785-ef95-4e00-8385-600b64b29042
 function ajustar_seirs(t0, tf, data, costo_func)
 	S0,ρ,β,σ,γ,δ   = [0.99, 0.1, 4, 4, 1, 0.1]
-	seir_prob     = ODEProblem(SEIRS!, [S0,ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ,δ])
+	seir_prob     = ODEProblem(SEIRS!, [S0,ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ,δ],abstol=1e-14,reltol=1e-10)
 	seirs_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
 		sol->costo_func(sol, (t0, tf), data, "seirs"), Optimization.AutoFiniteDiff(),
@@ -428,9 +476,6 @@ end
 
 # ╔═╡ f3d16260-c9d1-4667-b209-433b31b9e47a
 begin
-	"""
-	TODO: Corregir inestabilidades
-	"""
 	Random.seed!(global_random_seed)
 	params_seirs = ajustar_seirs(start1, end1, weeklyNewCasesFirstWave, costo)
 	params_seirs[:]
@@ -445,6 +490,23 @@ Para cada uno de los modelos analizar:
 + Los parámetros arrojados por el optimizador ¿tienen sentido? (para esto conviene considerar sus inversos). 
 """
 
+# ╔═╡ f8e8308e-c41b-4567-b210-3bb41d24925f
+md""" 
+*Respuesta*
+
+En los tres casos, se ven gráficos adecuados, gracias a que hemos ajustado, mediante prueba y error, los siguientes hiperparámetros:
+- Parámetros iniciales en el problema de optimización
+- Cotas inferiores
+- Cotas superiores
+
+Para determinar cual permite obtener un menor error de ajuste, nos basamos en el costo final obtenido con los parámetros ya ajustados. El SEIR fue el modelo que mejor ajustó a los datos (ver abajo). Esto puede parecer contradictorio, ya que el SEIRS tiene más parámetros. Y por lo tanto, más grados de libertad. Sin embargo, agrega más mínimos locales. Además, al ajustar una sóla ola, puede ser que el efecto de perder la inmunidad no sea muy relevante los datos.
+Igualmente, los resultados fueron obtenidos a partir de varios intentos de nuestra parte de mejorar el ajuste, por lo que no podemos afirmar cuál es el que mejor ajuste tiene. Podríamos, haber realizado una búsqueda sistemática de hiperparámetros, pero la misma sería bastante costosa.
+
+En cuanto a si los resultados obtenidos tienen sentido, los resultados parecen indicar que el modelo ajusta mejor con parametros que no parecen estar relacionados con las ideas aqui descriptas. Para las tasas cuyo inverso determina el tiempo medio en semanas de alguna caracerística que queramos modelar, en general les asignamos un rango de búsqueda de entre 0 y algún valor mayor a 10. Y han aparecido valores relativamente altos. Por ejemplo en el SEIR, que es el modelo que mejor ajustó, β (tasa de transmición), σ (tasa de recuperación) y γ (tasa de exposición) con valores de alrededor de 7. Tomando inversos, nos da que aproximadamente el tiempo medio entre contagios, recuperación e incubación es de un día. Lo cual no es lo que se ha reflejado en la pandemia según datos conocidos. Lo cual puede tener sentido pues cuando uno disminuye el tiempo medio de contagio o tiempo de incubacion, le permite al modelo una variabilidad mucho mayor, para ajustar una sóla ola.
+
+A continuación, se muestran los resultados obtenidos
+"""
+
 # ╔═╡ 9c56ca66-5892-4fad-abb7-4071993cb414
 function reporte(params, modelo, t0, tf, data, costo_func)
 	_plot_solution = plot()
@@ -455,7 +517,7 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 		prob_fitted = ODEProblem(
 			SIR!,
 			[params[1],1-params[1],0],
-			(start1, end1), params[2:3])
+			(start1, end1), params[2:3],abstol=1e-14,reltol=1e-10)
 		
 		sol_fitted = solve(prob_fitted)
 		_plot_solution = plot(sol_fitted, label=["S" "I" "R"])
@@ -478,7 +540,7 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 				0.
 			],
 			(t0, tf), 
-			params[3:5]
+			params[3:5],abstol=1e-14,reltol=1e-10
 		)
 		sol_fitted = solve(prob_fitted)
 		_plot_solution = plot(sol_fitted, label=["S" "E" "I" "R"])
@@ -501,12 +563,12 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 				0.
 			],
 			(t0, tf),
-			params_seirs[3:6]
+			params_seirs[3:6],abstol=1e-14,reltol=1e-10
 		)
 		sol_fitted = solve(prob_fitted)
 
-		expuestos = sol_fitted(t0:tf)
-		estimacion = params[5] * expuestos[2,:]
+		expuestos = sol_fitted.(t0:tf,idxs=2)
+		estimacion = params[5] * expuestos
 		_plot_comparison = plot(estimacion, label="γE")
 		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados por semana")
 		
@@ -515,7 +577,27 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 	
 	# Modelos de la segunda parte
 	elseif (modelo == "subregistro")
-		print("a")
+		prob_fitted = ODEProblem(
+			SEIRS!,
+			[
+				params[1],
+				params[2]*(1-params[1]),
+				1-params[1]-params[2]*(1-params[1]),
+				0.
+			],
+			(t0, tf),
+			params_seirs[3:6],abstol=1e-14,reltol=1e-10
+		)
+		sol_fitted = solve(prob_fitted)
+
+		expuestos = sol_fitted.(t0:tf,idxs=2)
+		estimacion = params[6] * params[5] * expuestos
+		_plot_comparison = plot(estimacion, label="αγE")
+		_plot_comparison = scatter!(data, label="Proporción de nuevos infectados registrados por semana")
+		
+		_plot_solution = plot(sol_fitted, label=["S" "E" "I_r" "I_n" "R"])
+		sol_costo = costo_func(sol_fitted, (t0, tf), data, "subregistro")		
+	
 	elseif (modelo == "mortalidad")
 		print("a")
 	end
@@ -630,7 +712,9 @@ function costo_robusto(solution, tspan, datos, modelo="sir")
     end 
     if (modelo == "sir")
         β = solution.prob.p[1]
-        predicted_data = β * solution.(tspan[1]:tspan[2], idxs=1) .* solution.(tspan[1]:tspan[2], idxs=2)
+		S = solution.(tspan[1]:tspan[2], idxs=1)
+		I = solution.(tspan[1]:tspan[2], idxs=2)
+        predicted_data = β * S .* I 
         diff_datos = diff(datos)
     	diff_pred = diff(predicted_data)   
         loss = 0.75*sum((predicted_data - datos).^2)+0.25*(sum((diff_pred- diff_datos).^2))
@@ -639,27 +723,37 @@ function costo_robusto(solution, tspan, datos, modelo="sir")
         
     elseif (modelo == "seir")
         γ = solution.prob.p[3]
-        predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
-        loss = sum((predicted_data - datos).^2)
-
-		diff_datos = diff(datos)
-    	diff_pred = diff(predicted_data)   
-        loss = 0.5*sum((predicted_data - datos).^2)+0.5*(sum((diff_pred- diff_datos).^2))
-
-        return loss 
-
-    elseif (modelo == "seirs")
-        γ = solution.prob.p[3]
-        predicted_data = γ * solution.(tspan[1]:tspan[2], idxs=2)
-        loss = sum((predicted_data - datos).^2)
-
+		E = solution.(tspan[1]:tspan[2], idxs=2)
+        predicted_data = γ * E
 		diff_datos = diff(datos)
     	diff_pred = diff(predicted_data)   
         loss = 0.75*sum((predicted_data - datos).^2)+0.25*(sum((diff_pred- diff_datos).^2))
 
         return loss 
-        
-    end
+
+    elseif (modelo == "seirs")
+        γ = solution.prob.p[3]
+		E = solution.(tspan[1]:tspan[2], idxs=2)
+        predicted_data = γ * E
+		diff_datos = diff(datos)
+    	diff_pred = diff(predicted_data)   
+        loss = 0.75*sum((predicted_data - datos).^2)+0.25*(sum((diff_pred- diff_datos).^2))
+
+        return loss
+
+	# Nuevos modelos
+	elseif (modelo == "subregistro")
+		γ = solution.prob.p[3]
+		α = solution.prob.p[4]
+		E = solution.(tspan[1]:tspan[2], idxs=2)
+
+		predicted_data = α * γ * E
+		diff_datos = diff(datos)
+    	diff_pred = diff(predicted_data)   
+        loss = 0.75*sum((predicted_data - datos).^2)+0.25*(sum((diff_pred- diff_datos).^2))
+
+		return loss
+	end
 end
 
 # ╔═╡ 8d7cc493-94eb-4f0e-94a1-be8cab97488a
@@ -686,35 +780,85 @@ begin
 end
 
 # ╔═╡ 37ad8d38-e5e2-4e35-9dbf-773cac0c6cb5
-plot_sol_2_waves_robusto, plot_comparison_2_waves_robusto, costo_2_waves_robusto = reporte(params_seirs_2_waves_robusto, "seirs", start1, end2, weeklyNewCases.NewCases[start1:end2], costo_robusto)
+plot_sol_2_waves_robusto, plot_comparison_2_waves_robusto, costo_2_waves_robusto = reporte(
+	params_seirs_2_waves_robusto,
+	"seirs",
+	start1,
+	end2,
+	weeklyNewCases.NewCases[start1:end2],
+	costo_robusto
+)
 
 # ╔═╡ 88780d2f-5f73-48c3-8c55-9dbf0b2bb22b
 plot_comparison_2_waves_robusto
 
+# ╔═╡ b8f50b94-d436-46f6-ba59-5138b34cb3d3
+"Costo SIR $(costo_sir). Costo SIR con nueva función de costo $(costo_sir_robusto)"
+
+# ╔═╡ 44fcd0bb-40a1-4c19-bab0-9535bb755a6d
+"Costo aproximacion a dos olas $(costo_2_waves). Costo aproximacion a dos olas con nueva función de costo $(costo_2_waves_robusto)"
+
+# ╔═╡ cc5c79c3-a75f-4074-87e9-4b0e7e5a2ca3
+md""" Vemos que en ambos casos, el entrenamiento con la nueva función de costo se ajusta mejor a los datos, pues el costo resultante es menor."""
+
 # ╔═╡ 81cd1c1c-2d14-4cbf-822e-da5164510522
 md""" #### Nuevo modelo: SEIR con consideración de un subregistro"""
 
-# ╔═╡ ec9926f7-e6de-49fd-b9ff-1470388b8771
-md""" 
-$$\left\{\begin{array}{rcl}
-	\dot{S} &=& -\beta S(I_r + I_n) \\ 
-	\dot{E} &=& \beta S(I_r + I_n) - \gamma E \\
-	\dot{I_r} &=& \alpha(\gamma E -\sigma (I_r + I_n)) \\
-	\dot{I_n} &=& (1-\alpha)(\gamma E -\sigma (I_r + I_n)) \\
-	\dot{R} &=& \sigma (I_r + I_n)
-\end{array}\right.$$ 
-"""
+# ╔═╡ 63a937c0-ce9d-4def-b994-58d80f6bf5df
+md""" Proponemos ajustar la primera ola utilizando la nueva función de costo, y un modelo basado en SEIR, que contemple el hecho de que una parte de los infectados no fue registrada. La proporción de infectados registrados la denotamos α, y determinamos que la misma debe estar en [0.7, 1]"""
 
 # ╔═╡ c58b2a48-aa24-4c5c-9be9-6e883a7b8108
-function Subregistro!(du,u,p,t)
-    β,σ,γ,α = p
-	S, E, I_r, I_n, R = u
-    du[1] = -β * S * (I_r + I_n)
-    du[2] = β * S * (I_r + I_n) - γ * E
-    du[3] = σ * (γ * E - σ * (I_r + I_n))
-    du[4] = (1-σ) * (γ * E - σ * (I_r + I_n))
-	du[5] = σ * (I_r + I_n)
+function ajustar_seir_con_subregistro(t0, tf, data, costo_func)
+	S0,ρ,β,σ,γ,α   = [0.999, 0.1, 1, 1, 1, 0.95]
+	
+	ode_prob     = ODEProblem(
+		Subregistro!, [S0, ρ*(1-S0),α*(1-S0-ρ*(1-S0)), (1-α)*(1-S0-ρ*(1-S0)), 0.],(t0, tf), [β,σ,γ,α]
+	)
+	
+	problem_func     = build_loss_objective(
+		ode_prob,
+		AutoTsit5(Rosenbrock23()),
+		sol->costo_func(sol, (t0, tf), data, "subregistro"), Optimization.AutoFiniteDiff(),
+		prob_generator = (prob, q) -> remake(
+			prob,
+			u0=[
+				q[1],
+				q[2]*(1-q[1]),
+				q[6]*(1-q[1]-q[2]*(1-q[1])), 
+				(1-q[6])*(1-q[1]-q[2]*(1-q[1])),
+				0.
+			],
+			p=q[3:6]
+		)
+	)
+
+	optProb = OptimizationProblem(
+		problem_func,
+		[S0,ρ,β,σ,γ,α],
+		lb=[0.99, 0.1, 0, 0, 0, 0.9],
+		ub=[1,1,7,7,7,1]
+	)
+	fitted_params = solve(optProb,SAMIN(rt=0.98),maxiters=500000)
+	
+
+	return fitted_params
 end
+
+# ╔═╡ 9b581328-85fb-48a5-bba1-7147b490b3df
+begin
+	Random.seed!(global_random_seed)
+	params_subregistro = ajustar_seir_con_subregistro(start1, end1, weeklyNewCasesFirstWave, costo_robusto)
+	params_subregistro[:]
+end
+
+# ╔═╡ b2ba4427-5dcb-482f-ad6c-aa97ee9ef2d3
+plot_sol_subregistro, plot_comparison_subregistro, costo_subregistro = reporte(params_subregistro, "subregistro", start1, end1, weeklyNewCasesFirstWave, costo_robusto)
+
+# ╔═╡ 68f02d18-8767-4b52-9eab-592ede3cb181
+plot_comparison_subregistro
+
+# ╔═╡ b0634992-6c0b-4bb1-bc74-56600a394549
+plot_sol_subregistro
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2949,7 +3093,7 @@ version = "1.4.1+1"
 # ╔═╡ Cell order:
 # ╠═e8d8fd8e-48ce-11ee-3acb-db987c0fd698
 # ╠═12946327-c68e-45d6-9e4f-2e877a5d868a
-# ╠═e7882bce-0501-4920-9953-49d81d4134cd
+# ╟─e7882bce-0501-4920-9953-49d81d4134cd
 # ╠═a25de38b-4ce4-4acb-9b14-87ee27003f5c
 # ╟─c1bd779a-b9a4-488f-bba4-05ee372828e9
 # ╟─7bfd4205-a13e-4ce4-9a8f-9c1e86414550
@@ -2958,20 +3102,20 @@ version = "1.4.1+1"
 # ╠═f61bc43c-f34b-4d2b-a161-dcdec35c45db
 # ╠═777786c4-b6bf-4b65-af64-66659b769536
 # ╠═9b2b8344-44f7-4a7f-8255-699cf80a1aec
-# ╠═23dd288a-1428-4081-9ff0-a9ddc0c4d346
+# ╟─23dd288a-1428-4081-9ff0-a9ddc0c4d346
 # ╠═47cb9fd6-7f44-46a2-ac18-f47f9a1af7e5
-# ╠═ba08e6e3-5a2d-4351-a1c8-e3a70cf677cf
+# ╟─ba08e6e3-5a2d-4351-a1c8-e3a70cf677cf
 # ╠═0ec43ade-b2d1-419c-9dd8-05a3fba3dc57
 # ╠═af98c3c6-a58c-40c4-87cd-bca3ce30e661
 # ╠═65f8859f-fb9d-4c4e-b53f-2eb3ebdb0e8b
 # ╠═698ce621-766b-40bb-9a3d-0fd2ae6f13f4
-# ╠═a4ded4f6-21f8-4d9e-b6c5-eb7fa634a738
+# ╟─a4ded4f6-21f8-4d9e-b6c5-eb7fa634a738
 # ╠═51d7fc7c-dc38-4c3c-a816-05d7c50a9f05
-# ╠═54b96729-a475-494b-86f8-a2188593ce33
+# ╟─54b96729-a475-494b-86f8-a2188593ce33
 # ╠═687b1582-20d3-44e4-b912-7a29703ff2b7
-# ╠═0c01dc2c-f8bd-48ff-a56c-250a0a260fd2
+# ╟─0c01dc2c-f8bd-48ff-a56c-250a0a260fd2
 # ╠═6d3a0ccc-643c-4a4e-af21-76fd75bfcf8e
-# ╠═8d023828-3314-4ac8-becd-2d5f896f8190
+# ╟─8d023828-3314-4ac8-becd-2d5f896f8190
 # ╠═b8bd7ee6-92f8-44c4-96e7-6d86575025e1
 # ╟─ddf46cb1-9f4a-43e7-820a-7722a865f0fe
 # ╟─7386a708-0bdc-4bec-8c3e-9c6b5f7d30a6
@@ -2980,6 +3124,10 @@ version = "1.4.1+1"
 # ╠═4d00dea0-c434-4311-9f0d-5d95550adb4a
 # ╟─ec272190-8008-4d4b-916b-dc355fbce8eb
 # ╠═6a34ed3f-3bb3-47ad-9237-c95d6e9c9e05
+# ╟─e1e16eac-209f-448c-a9d4-fffaf72e4f25
+# ╟─3420921c-76f6-4dec-aab2-567acf283cd0
+# ╟─e60fa04d-17cd-4756-9e84-5cc03f2116c7
+# ╠═fc0c1c52-edc3-4455-840e-0a24cae3727e
 # ╟─7ac39268-0555-4906-bd84-e1d1185c7814
 # ╟─82c4e128-a488-4032-acaf-2b0549cea8f0
 # ╟─60ae80a6-2354-4c68-abd8-2cc2f839d4db
@@ -2996,6 +3144,7 @@ version = "1.4.1+1"
 # ╠═7ea16785-ef95-4e00-8385-600b64b29042
 # ╠═f3d16260-c9d1-4667-b209-433b31b9e47a
 # ╟─4e0aaf37-4150-4526-b0fe-707bd8d9602b
+# ╟─f8e8308e-c41b-4567-b210-3bb41d24925f
 # ╠═9c56ca66-5892-4fad-abb7-4071993cb414
 # ╠═d89652d0-d82c-4d23-b9ca-2b96f8dee98e
 # ╠═fa9ae04c-94df-42eb-ae42-36abe0724a95
@@ -3024,8 +3173,15 @@ version = "1.4.1+1"
 # ╠═bb21d4a8-73b8-4ef9-a20a-3066db9c774c
 # ╠═37ad8d38-e5e2-4e35-9dbf-773cac0c6cb5
 # ╠═88780d2f-5f73-48c3-8c55-9dbf0b2bb22b
-# ╠═81cd1c1c-2d14-4cbf-822e-da5164510522
-# ╟─ec9926f7-e6de-49fd-b9ff-1470388b8771
+# ╟─b8f50b94-d436-46f6-ba59-5138b34cb3d3
+# ╟─44fcd0bb-40a1-4c19-bab0-9535bb755a6d
+# ╟─cc5c79c3-a75f-4074-87e9-4b0e7e5a2ca3
+# ╟─81cd1c1c-2d14-4cbf-822e-da5164510522
+# ╟─63a937c0-ce9d-4def-b994-58d80f6bf5df
 # ╠═c58b2a48-aa24-4c5c-9be9-6e883a7b8108
+# ╠═9b581328-85fb-48a5-bba1-7147b490b3df
+# ╠═b2ba4427-5dcb-482f-ad6c-aa97ee9ef2d3
+# ╠═68f02d18-8767-4b52-9eab-592ede3cb181
+# ╠═b0634992-6c0b-4bb1-bc74-56600a394549
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
