@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.29
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -18,8 +18,13 @@ global_random_seed = 1234;
 
 # ╔═╡ c1bd779a-b9a4-488f-bba4-05ee372828e9
 md"""# TP $n^\circ$ 1: Modelado de datos de COVID.
+### Integrantes:
 
-**Nota**: La resolución del TP puede hacerse en grupos de a lo sumo 3 personas. Puede hacerse sobre esta misma notebook o en un archivo de código para correr en una terminal de `Julia`, en cuyo casos el análisis puede agregarse en forma de comentarios. """
+- Mateo Suffern
+- Mateo Cesaroni
+- Nicolás Rozenberg
+
+"""
 
 
 # ╔═╡ 7bfd4205-a13e-4ce4-9a8f-9c1e86414550
@@ -69,6 +74,8 @@ begin
 	# Normalizamos (Tomamos todas las magnitudes en términos de proporción poblacional)
 	dataCases.New_cases /= POPULATION_SIZE
 	dataDeaths.New_deaths /= POPULATION_SIZE
+	dataCases.Cumulative_cases /= POPULATION_SIZE
+	dataDeaths.Cumulative_deaths /= POPULATION_SIZE
 	
 end
 
@@ -87,8 +94,21 @@ begin
 
 	dataCases[!, :NoWeek] = dataCases.Index .÷ 7;
 	dataDeaths[!, :NoWeek] = dataDeaths.Index .÷ 7;
-	weeklyNewDeaths = combine(groupby(dataDeaths, :NoWeek), :New_deaths => sum => :NewDeaths);
-	weeklyNewCases = combine(groupby(dataCases, :NoWeek), :New_cases => sum => :NewCases);
+	grouped_data_cases = groupby(dataCases, :NoWeek)
+	grouped_data_deaths = groupby(dataDeaths, :NoWeek)
+	
+	weeklyNewDeaths = combine(grouped_data_deaths) do subdata
+	    return DataFrame(
+	        NewDeaths = sum(subdata.New_deaths),
+	        CumulativeDeaths = sum(subdata.Cumulative_deaths)
+	    )
+	end
+	weeklyNewCases = combine(grouped_data_cases) do subdata
+	    return DataFrame(
+	        NewCases = sum(subdata.New_cases),
+	        CumulativeCases = sum(subdata.Cumulative_cases)
+	    )
+	end
 end
 
 # ╔═╡ ba08e6e3-5a2d-4351-a1c8-e3a70cf677cf
@@ -361,11 +381,11 @@ end
 test_costo()
 
 # ╔═╡ 1661b0cb-bb9e-40aa-8346-3b791a3e2c39
-md""" ## Funcion de busqueda de hiperparametros
-Para encontrar los bounds óptimos para las funciones de ajuste usamos una función de busqueda llamada search para afrontar el problema de los optimos locales. 
-La función **search** opera generando hiperparámetros aleatorios dentro de un rango predefinido y aplicando la función de ajuste sobre ellos. Posteriormente, con los valores de los parámetros derivados de esta función de ajuste, calculamos el costo asociado. Si este costo resulta ser inferior al mejor costo registrado hasta el momento, actualizamos nuestros hiperparámetros óptimos con los valores recién obtenidos. 
+md""" ## Función de búsqueda de hiperpárametros
+Para encontrar los bounds óptimos para las funciones de ajuste usamos una función de busqueda llamada `search` para afrontar el problema de los optimos locales. 
+La función `search` opera generando lower y upper bounds aleatorios dentro de un rango predefinido y aplicando la función de ajuste sobre ellos. Posteriormente, con los valores de los parámetros derivados de esta función de ajuste, calculamos el costo asociado. Si este costo resulta ser inferior al mejor costo registrado hasta el momento, actualizamos nuestros hiperparámetros óptimos con los valores recién obtenidos. 
 
-Se debe resaltar que esta función es computacionalmente costosa. Incluso con tan solo 100 iteraciones, el tiempo de ejecución puede ser significativo. Debido a esta alta demanda de tiempo, ejecutamos la función de forma independiente y hemos colocado el código en un archivo separado llamado **search.jl** para mantener la organización y modularidad del código principal. 
+Se debe resaltar que esta función es computacionalmente costosa. Incluso con tan solo 100 iteraciones, el tiempo de ejecución puede ser significativo. Debido a esta alta demanda de tiempo, ejecutamos la función de forma independiente y hemos colocado el código en un archivo separado llamado `search.jl` para mantener la organización y modularidad del código principal. 
 """
 
 # ╔═╡ b629aa53-518a-4fc5-9470-91430b5f3e54
@@ -405,8 +425,20 @@ end
 begin
 	Random.seed!(global_random_seed)
 	params_sir = ajustar_sir(start1, end1, weeklyNewCasesFirstWave, costo)
-	params_sir[:]
 end
+
+# ╔═╡ 692e5f9b-9a76-4364-8c3a-969b48e2dbbf
+md""" 
+S₀ = $(round(params_sir[1], sigdigits=6)),
+β = $(round(params_sir[2], sigdigits=6)),
+σ = $(round(params_sir[3], sigdigits=6))
+"""
+
+# ╔═╡ b09b8e1f-cb58-461b-9a14-40ea8e469fcf
+md""" Tasa Básica de Reproducción SIR """
+
+# ╔═╡ 4c75d982-1f7b-4471-9311-bee9359ab983
+"R₀ = $(round((params_sir[2]/params_sir[3]), sigdigits=5))"
 
 # ╔═╡ 1353ba07-59d1-4511-9fb9-d102d8f141c2
 md""" ## Ajuste SEIR """
@@ -444,8 +476,22 @@ end
 begin
 	Random.seed!(1234)
 	params_seir = ajustar_seir(start1, end1, weeklyNewCasesFirstWave, costo)
-	params_seir[:]
 end
+
+# ╔═╡ 22ac35ba-c217-4538-8908-02d32906f988
+md""" 
+S₀ = $(round(params_seir[1], sigdigits=6)),
+ρ = $(round(params_seir[2], sigdigits=6)),
+β = $(round(params_seir[3], sigdigits=6)),
+σ = $(round(params_seir[4], sigdigits=6)),
+γ = $(round(params_seir[5], sigdigits=6))
+"""
+
+# ╔═╡ bb31aeee-a530-4958-b80f-792c60641601
+md""" Tasa Básica de Reproducción SEIR """
+
+# ╔═╡ 5a06df6f-375d-4490-8eae-f1c80c824120
+"R₀ = $(round((params_seir[3]/params_seir[4]), sigdigits=5))"
 
 # ╔═╡ 987a37b3-a0f8-4919-9ae1-8525ad9bf6a9
 md""" ## Ajuste SEIRS """
@@ -483,8 +529,23 @@ end
 begin
 	Random.seed!(global_random_seed)
 	params_seirs = ajustar_seirs(start1, end1, weeklyNewCasesFirstWave, costo)
-	params_seirs[:]
 end
+
+# ╔═╡ fedc970c-d407-40c5-abda-07c72bf12338
+md""" 
+S₀ = $(round(params_seirs[1], sigdigits=6)),
+ρ = $(round(params_seirs[2], sigdigits=6)),
+β = $(round(params_seirs[3], sigdigits=6)),
+σ = $(round(params_seirs[4], sigdigits=6)),
+γ = $(round(params_seirs[5], sigdigits=6)),
+δ = $(round(params_seirs[6], sigdigits=6)),
+"""
+
+# ╔═╡ 55726c51-1149-456d-8663-968759606d81
+md""" Tasa Básica de Reproducción SEIRS """
+
+# ╔═╡ 28cf9024-6a43-4ef4-843e-6c0c74b1622d
+"R₀ = $(round((params_seirs[3]/params_seirs[4]), sigdigits=5))"
 
 # ╔═╡ 4e0aaf37-4150-4526-b0fe-707bd8d9602b
 md"""#### Comparación:
@@ -497,19 +558,19 @@ Para cada uno de los modelos analizar:
 
 # ╔═╡ f8e8308e-c41b-4567-b210-3bb41d24925f
 md""" 
-*Respuesta*
+#### *Respuesta*
 
-En los tres casos, se ven gráficos adecuados, gracias a que hemos ajustado, mediante prueba y error, los siguientes hiperparámetros:
-- Parámetros iniciales en el problema de optimización
+En los tres casos, se ven gráficos adecuados, gracias a que hemos ajustado mediante un random search, como hemos explicado arriba, los siguientes hiperparámetros:
 - Cotas inferiores
 - Cotas superiores
 
-Para determinar cual permite obtener un menor error de ajuste, nos basamos en el costo final obtenido con los parámetros ya ajustados. El SEIR fue el modelo que mejor ajustó a los datos (ver abajo), aunque en muchas ocasiones, al variar los hiperparámetros, el SIR ajustaba mejor. Esto puede parecer contradictorio, ya que el SEIRS tiene más parámetros. Y por lo tanto, más grados de libertad. Sin embargo, agrega más mínimos locales. Además, al ajustar una sóla ola, puede ser que el efecto de perder la inmunidad no sea muy relevante los datos.
-Igualmente, los resultados fueron obtenidos a partir de varios intentos de nuestra parte de mejorar el ajuste, por lo que no podemos afirmar cuál es el que mejor ajuste tiene. Podríamos, haber realizado una búsqueda sistemática de hiperparámetros, pero la misma sería bastante costosa.
+Para determinar cual permite obtener un menor error de ajuste, nos basamos en el costo final obtenido con los parámetros ya ajustados. El SIR fue el modelo que mejor ajustó a los datos (ver abajo), aunque en muchas ocasiones, el SEIR ajustaba bien. Aún así, no hemos encontrado mejores hiperparámetros para el SEIR.
+Esto puede parecer contradictorio, ya que el SEIRS tiene más parámetros. Y por lo tanto, más grados de libertad. Sin embargo, agrega más mínimos locales. Además, al ajustar una sóla ola, puede ser que el efecto de perder la inmunidad no sea muy relevante los datos.
+Igualmente, consideramos que con lo realizado, no podemos obtener una conclusión firme sobre cuál es el modelo que permite un menor error de ajuste. Para eso, además del random search, deberíamos hacer un análisis de la distribución del error para cada modelo dados los hiperparámetros. Sin embargo, dicha tarea sería muy costosa para el presente entregable. Además, no son los únicos hiperparámetros. También están como hiperparámetros, por ejemplo el algoritmo a utilizar para resolver el problema de optimización, la función de regularización, etc.
 
-En cuanto a si los resultados obtenidos tienen sentido, los resultados parecen indicar que el modelo ajusta mejor con parametros que no parecen estar relacionados con las ideas aqui descriptas. El inverso de las tasas determina el tiempo medio en semanas de las caracteristicas que queremos modelar. Sin embargo para nuestra aproximacion a los parametros hemos flexibilizado los lower y los upper bounds para abarcar un rango de valores mayor. El resultado de esta flexibilizacion han sido a veces parametros con valores muy altos. Por ejemplo en el SEIR, que es el modelo que mejor ajustó, β (tasa de transmición), σ (tasa de recuperación) y γ (tasa de exposición) con valores de alrededor de 25. Tomando inversos, nos da que aproximadamente el tiempo medio entre contagios, recuperación e incubación es de unas horas. Estos resultados no se han visto reflejados en los datos conocidos de la pandemia. Esto se puede deber a que cuando uno disminuye el tiempo medio de contagio o tiempo de incubacion, le permite al modelo una variabilidad mucho mayor, para ajustar una sóla ola.
+En cuanto a si los resultados obtenidos tienen sentido, los resultados parecen indicar que el modelo ajusta mejor con parámetros que no parecen estar relacionados con las ideas aquí descriptas. El inverso de las tasas determina el tiempo medio en semanas de las caracteristicas que queremos modelar. Sin embargo para nuestra aproximacion a los parametros hemos flexibilizado los lower y los upper bounds para abarcar un rango de valores mayor. El resultado de esta flexibilizacion han sido a veces parametros con valores muy altos. Por ejemplo en el SIR, que es el modelo que mejor ajustó, los valores de β (tasa de transmisión), σ (tasa de recuperación) fueron de alrededor de 10. Tomando inversos, nos da que aproximadamente el tiempo medio entre contagios, recuperación e incubación es de un poco más de medio día. Estos resultados no se han visto reflejados en los datos conocidos de la pandemia. Esto se puede deber a que cuando uno disminuye el tiempo medio de contagio o tiempo de incubacion, le permite al modelo una variabilidad mucho mayor, para ajustar una sóla ola. Otro punto a remarcar son las tasas básicas de reproducción arrojadas por cada modelo, que han dado un resultado considerablemente preciso, de un poco más que 1. Es decir, por cada infectado se producía un nuevo infectado. Sin embargo, a pesar de no ser poseer un valor conocido, según diversas fuentes, dicha tasa en Argentina debería ser de más de 2. En nuestra opinión, esto puede deberse a falta de datos sobre los infectados, o a las medidas tomadas en la etapa temprana de la pandemia.
 
-A continuación, se muestran los resultados obtenidos
+A continuación, se muestran los resultados obtenidos. Creamos una función `reporte` que dado un modelo, parámetros ajustados, datos, tiempo inicial, tiempo final y una función de costo, devuelve un gráfico con las soluciones al sistema de ecuaciones, un gráfico comparando los datos con la predicción hecha por el modelo, y el error calculado por la función de costo.
 """
 
 # ╔═╡ 9c56ca66-5892-4fad-abb7-4071993cb414
@@ -568,7 +629,7 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 				0.
 			],
 			(t0, tf),
-			params_seirs[3:6],abstol=1e-14,reltol=1e-10
+			params[3:6],abstol=1e-14,reltol=1e-10
 		)
 		sol_fitted = solve(prob_fitted)
 
@@ -579,19 +640,19 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 		
 		_plot_solution = plot(sol_fitted, label=["S" "E" "I" "R"])
 		sol_costo = costo_func(sol_fitted, (t0, tf), data, "sir")		
-	
 	# Modelos de la segunda parte
 	elseif (modelo == "subregistro")
 		prob_fitted = ODEProblem(
-			SEIRS!,
+			Subregistro!,
 			[
 				params[1],
 				params[2]*(1-params[1]),
-				1-params[1]-params[2]*(1-params[1]),
+				params[6]*(1-params[1]-params[2]*(1-params[1])),
+				(1-params[6])*(1-params[1]-params[2]*(1-params[1])),
 				0.
 			],
 			(t0, tf),
-			params_seirs[3:6],
+			params[3:6],
 		)
 		sol_fitted = solve(prob_fitted)
 
@@ -602,9 +663,6 @@ function reporte(params, modelo, t0, tf, data, costo_func)
 		
 		_plot_solution = plot(sol_fitted, label=["S" "E" "I_r" "I_n" "R"])
 		sol_costo = costo_func(sol_fitted, (t0, tf), data, "subregistro")		
-	
-	elseif (modelo == "mortalidad")
-		print("a")
 	end
 
 	return _plot_solution, _plot_comparison, sol_costo
@@ -658,17 +716,29 @@ Finalmente, con el modelo SEIRS se puede intentar ajustar conjuntamente las dos 
 begin
 	Random.seed!(global_random_seed)
 	params_seirs_2_waves = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2], costo)
-	params_seirs_2_waves[:]
 end
+
+# ╔═╡ 37a0d2b1-3323-41d8-98ba-11ef61301055
+md""" 
+S₀ = $(round(params_seirs_2_waves[1], sigdigits=6)),
+ρ = $(round(params_seirs_2_waves[2], sigdigits=6)),
+β = $(round(params_seirs_2_waves[3], sigdigits=6)),
+σ = $(round(params_seirs_2_waves[4], sigdigits=6)),
+γ = $(round(params_seirs_2_waves[5], sigdigits=6)),
+δ = $(round(params_seirs_2_waves[6], sigdigits=6)),
+"""
 
 # ╔═╡ 409901e6-f7ae-4e9d-b7bf-a050931bb954
 plot_sol_2_waves, plot_comparison_2_waves, costo_2_waves = reporte(params_seirs_2_waves, "seirs", start1, end2, weeklyNewCases.NewCases[start1:end2], costo)
 
-# ╔═╡ 31436583-d97b-4815-bd02-bb50f0a12834
-plot_sol_2_waves
-
 # ╔═╡ f576223d-cdbe-4939-bc4a-96a226e002ca
 plot_comparison_2_waves
+
+# ╔═╡ 80b4a616-0a72-4bb5-ada5-9d85e462f194
+md""" #### *Comentario* """
+
+# ╔═╡ 0f8945ff-944d-49ec-a3c6-c8c4a7977dee
+md""" En los intentos que hemos realizado para ajustar las dos olas con el SEIRS, en ninguna se ha alcanzado que la curva suba de nuevo para ajustar la segunda ola. Esto puede deberse a que no es suficiente considerar únicamente que una parte de los removidos se convierten en susceptibles de nuevo. También deberíamos considerar que la tasa de transmisión β puede llegar a cambiar a lo largo del tiempo. De esta forma, podríamos pensar que los saltos se deben a cambios de dicha tasa. """
 
 # ╔═╡ 1a391e49-eba4-49ca-a16b-f37cc50bb85b
 md""" ## Segunda Parte
@@ -762,6 +832,12 @@ function costo_robusto(solution, tspan, datos, modelo="sir")
 	end
 end
 
+# ╔═╡ 6e011bd2-ea7e-4fa0-ad61-b71d70e37bc8
+md""" Probamos el rendimiento de los modelos SIR y SEIR para predecir la primera ola con la nueva función de costo, y el SEIRS para predecir las dos olas"""
+
+# ╔═╡ 36248e47-e567-4190-bcb1-6ed8b2bf9dfd
+md""" SIR con Costo Robusto"""
+
 # ╔═╡ 8d7cc493-94eb-4f0e-94a1-be8cab97488a
 begin
 	Random.seed!(global_random_seed)
@@ -778,45 +854,44 @@ plot_sol_sir_robusto
 # ╔═╡ 34cf0e49-fdae-4c2e-83c5-eb2f33088db3
 plot_comparison_sir_robusto
 
-# ╔═╡ bb21d4a8-73b8-4ef9-a20a-3066db9c774c
+# ╔═╡ ee44dcec-6bfc-4a5c-9593-3996c29828ca
+md""" SEIR con Costo Robusto """
+
+# ╔═╡ 0524a704-d040-4ff2-be90-49a47ae92762
 # ╠═╡ show_logs = false
 begin
 	Random.seed!(global_random_seed)
-	params_seirs_2_waves_robusto = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2], costo_robusto)
-	params_seirs_2_waves_robusto[:]
+	params_seir_robusto = ajustar_seir(start1, end1, weeklyNewCasesFirstWave, costo_robusto)
+	params_seir_robusto[:]
 end
 
-# ╔═╡ 37ad8d38-e5e2-4e35-9dbf-773cac0c6cb5
-plot_sol_2_waves_robusto, plot_comparison_2_waves_robusto, costo_2_waves_robusto = reporte(
-	params_seirs_2_waves_robusto,
-	"seirs",
-	start1,
-	end2,
-	weeklyNewCases.NewCases[start1:end2],
-	costo_robusto
-)
+# ╔═╡ fdd451c5-84e4-4ffd-8b15-f628796d07ca
+plot_sol_seir_robusto, plot_comparison_seir_robusto, costo_seir_robusto = reporte(params_seir_robusto, "seir", start1, end1, weeklyNewCasesFirstWave, costo_robusto)
 
-# ╔═╡ 88780d2f-5f73-48c3-8c55-9dbf0b2bb22b
-plot_comparison_2_waves_robusto
+# ╔═╡ 12e0bdd9-daf7-4d04-b71a-869608bdccd2
+plot_sol_seir_robusto
+
+# ╔═╡ 87c54ad2-a74e-4f7d-81af-745b332befb5
+plot_comparison_seir_robusto
 
 # ╔═╡ b8f50b94-d436-46f6-ba59-5138b34cb3d3
-"Costo SIR $(costo_sir). Costo SIR con nueva función de costo $(costo_sir_robusto)"
+"Costo SIR $(round(costo_sir, sigdigits=4)) con función de costo L2 entre βSI y los datos. Costo SIR con nueva función de costo $(round(costo_sir_robusto, sigdigits=4))"
 
 # ╔═╡ 44fcd0bb-40a1-4c19-bab0-9535bb755a6d
-"Costo aproximacion a dos olas $(costo_2_waves). Costo aproximacion a dos olas con nueva función de costo $(costo_2_waves_robusto)"
+"Costo SEIR $(round(costo_seir, sigdigits=4)). Costo SEIR con nueva función de costo $(round(costo_seir_robusto, sigdigits=4))"
 
 # ╔═╡ cc5c79c3-a75f-4074-87e9-4b0e7e5a2ca3
-md""" Vemos que en ambos casos, el entrenamiento con la nueva función de costo se ajusta mejor a los datos, pues el costo resultante es menor."""
+md""" Vemos que en ambos casos, el entrenamiento con la nueva función de costo se ajusta mejor a los datos, pues el costo resultante es menor. Incluso para el SEIR, el error es de un orden menos de magnitud, en este caso."""
 
 # ╔═╡ 81cd1c1c-2d14-4cbf-822e-da5164510522
 md""" #### Nuevo modelo: SEIR con consideración de un subregistro"""
 
 # ╔═╡ 63a937c0-ce9d-4def-b994-58d80f6bf5df
-md""" Proponemos ajustar la primera ola utilizando la nueva función de costo, y un modelo basado en SEIR, que contemple el hecho de que una parte de los infectados no fue registrada. La proporción de infectados registrados la denotamos α, y determinamos que la misma debe estar en [0.7, 1]"""
+md""" Proponemos ajustar la primera ola utilizando la nueva función de costo, y un modelo basado en SEIR, que contemple el hecho de que una parte de los infectados no fue registrada. La proporción de infectados registrados la denotamos α, y determinamos que la misma debe estar en [0.8, 1]. Para los demás parámetros, dejaremos el mismo espacio de búsqueda que el utilizado para el SEIR normal. Queremos ver si además, la tasa básica de reproducción R₀ sube."""
 
 # ╔═╡ c58b2a48-aa24-4c5c-9be9-6e883a7b8108
 function ajustar_seir_con_subregistro(t0, tf, data, costo_func)
-	S0,ρ,β,σ,γ,α   = [0.9999, 1.72, 14.03, 19.94, 14.65,0.95]
+	S0,ρ,β,σ,γ,α   = [0.9999, 1.72, 14.03, 19.94, 14.65,0.9]
 	
 	ode_prob     = ODEProblem(
 		Subregistro!, [S0, ρ*(1-S0),α*(1-S0-ρ*(1-S0)), (1-α)*(1-S0-ρ*(1-S0)), 0.],(t0, tf), [β,σ,γ,α]
@@ -838,11 +913,11 @@ function ajustar_seir_con_subregistro(t0, tf, data, costo_func)
 			p=q[3:6]
 		)
 	)
-#lb=[0.9999, 1.72, 14.03, 19.94, 14.65],ub=[1,14.85,28.58,25.52,18.68]
+
 	optProb = OptimizationProblem(
 		problem_func,
 		[S0,ρ,β,σ,γ,α],
-		lb=[0.9999, 1.72, 14.03, 19.94, 14.65,0.95],
+		lb=[0.9999, 1.72, 14.03, 19.94, 14.65,0.8],
 		ub=[1,14.85,28.58,25.52,18.68,1]
 	)
 	fitted_params = solve(optProb,SAMIN(rt=0.98),maxiters=500000)
@@ -856,8 +931,23 @@ end
 begin
 	Random.seed!(global_random_seed)
 	params_subregistro = ajustar_seir_con_subregistro(start1, end1, weeklyNewCasesFirstWave, costo_robusto)
-	params_subregistro[:]
 end
+
+# ╔═╡ 06aced57-3a05-4240-b17b-7c9cd5b8192e
+md""" 
+S₀ = $(round(params_subregistro[1], sigdigits=6)),
+ρ = $(round(params_subregistro[2], sigdigits=6)),
+β = $(round(params_subregistro[3], sigdigits=6)),
+σ = $(round(params_subregistro[4], sigdigits=6)),
+γ = $(round(params_subregistro[5], sigdigits=6)),
+α = $(round(params_subregistro[6], sigdigits=6)),
+"""
+
+# ╔═╡ 3b821a2f-b912-40b3-a85d-6325739511f5
+md"""Tasa básica de reproducción"""
+
+# ╔═╡ 5a9a6b0f-088c-4906-ac2f-d5458443044c
+"R₀ = $(round((params_subregistro[3]/params_subregistro[4]), sigdigits=5))"
 
 # ╔═╡ b2ba4427-5dcb-482f-ad6c-aa97ee9ef2d3
 plot_sol_subregistro, plot_comparison_subregistro, costo_subregistro = reporte(params_subregistro, "subregistro", start1, end1, weeklyNewCasesFirstWave, costo_robusto)
@@ -865,8 +955,14 @@ plot_sol_subregistro, plot_comparison_subregistro, costo_subregistro = reporte(p
 # ╔═╡ 68f02d18-8767-4b52-9eab-592ede3cb181
 plot_comparison_subregistro
 
-# ╔═╡ b0634992-6c0b-4bb1-bc74-56600a394549
-plot_sol_subregistro
+# ╔═╡ eea7bc27-318c-4c2f-8ff7-e48adba5b1e8
+"Costo SEIR sin considerar subregistro: $(round(costo_seir_robusto, sigdigits=4))"
+
+# ╔═╡ 86ceea99-d72a-46e5-8022-d5b96d14d7e1
+"Costo SEIR considerando subregistro: $(round(costo_subregistro, sigdigits=4))"
+
+# ╔═╡ 2750eb8a-b5df-412d-ac6c-c1bc1f7e7b64
+md""" Se puede ver que este modelo ajusto mejor que sin considerar la separación entre infectados registrados y no registrados. Sin embargo, la tasa básica de reproducción ha sido muy similar a la de los otros modelos. Por lo que este resultado no evidencia nuestra hipótesis de que la baja tasa básica de reproducción se debe a la falta de datos sobre infectados."""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -3125,16 +3221,25 @@ version = "1.4.1+1"
 # ╟─d38f2c0f-1bb0-4113-9dbb-d407ab8ea96f
 # ╠═bc841a10-0b43-4d8d-9dd7-d40408e765b3
 # ╠═689f9f65-7e51-4526-99cd-52e2c3cfe78f
-# ╠═1661b0cb-bb9e-40aa-8346-3b791a3e2c39
+# ╟─1661b0cb-bb9e-40aa-8346-3b791a3e2c39
 # ╟─b629aa53-518a-4fc5-9470-91430b5f3e54
 # ╠═2d975c53-f949-44f2-b6c3-956bcc4a0b60
 # ╠═aab70191-23d1-42b4-86b3-c9154d1cc5ba
+# ╟─692e5f9b-9a76-4364-8c3a-969b48e2dbbf
+# ╟─b09b8e1f-cb58-461b-9a14-40ea8e469fcf
+# ╟─4c75d982-1f7b-4471-9311-bee9359ab983
 # ╟─1353ba07-59d1-4511-9fb9-d102d8f141c2
 # ╠═21814cf5-40a1-4298-90dc-d4e57fd96eed
 # ╠═99563d42-da05-47ac-bff8-fac927709585
+# ╟─22ac35ba-c217-4538-8908-02d32906f988
+# ╟─bb31aeee-a530-4958-b80f-792c60641601
+# ╟─5a06df6f-375d-4490-8eae-f1c80c824120
 # ╟─987a37b3-a0f8-4919-9ae1-8525ad9bf6a9
 # ╠═7ea16785-ef95-4e00-8385-600b64b29042
 # ╠═f3d16260-c9d1-4667-b209-433b31b9e47a
+# ╟─fedc970c-d407-40c5-abda-07c72bf12338
+# ╟─55726c51-1149-456d-8663-968759606d81
+# ╟─28cf9024-6a43-4ef4-843e-6c0c74b1622d
 # ╟─4e0aaf37-4150-4526-b0fe-707bd8d9602b
 # ╟─f8e8308e-c41b-4567-b210-3bb41d24925f
 # ╠═9c56ca66-5892-4fad-abb7-4071993cb414
@@ -3142,7 +3247,7 @@ version = "1.4.1+1"
 # ╠═fa9ae04c-94df-42eb-ae42-36abe0724a95
 # ╠═deab9ac9-8925-4bec-b347-9dc90f4ed33b
 # ╠═fc20f1f9-03fe-40a3-b436-285a21f4cb8d
-# ╠═c4c1f2e2-1f41-404a-913e-222f5c40c84c
+# ╟─c4c1f2e2-1f41-404a-913e-222f5c40c84c
 # ╠═11f08c24-ae75-46af-9380-8069a6a8fe03
 # ╠═96499d60-6da0-4b3f-a6eb-522328f76130
 # ╠═77c8010b-4c32-43f2-a000-9a59f2a2d8ea
@@ -3152,19 +3257,25 @@ version = "1.4.1+1"
 # ╠═f8672f45-1ae6-4275-a9f1-2c50a29e4f6a
 # ╟─98c013a6-e3c0-43e0-a193-fb259aad722a
 # ╠═717fb42e-d967-4548-8bba-72f32af5107f
+# ╟─37a0d2b1-3323-41d8-98ba-11ef61301055
 # ╠═409901e6-f7ae-4e9d-b7bf-a050931bb954
-# ╠═31436583-d97b-4815-bd02-bb50f0a12834
 # ╠═f576223d-cdbe-4939-bc4a-96a226e002ca
+# ╟─80b4a616-0a72-4bb5-ada5-9d85e462f194
+# ╟─0f8945ff-944d-49ec-a3c6-c8c4a7977dee
 # ╟─1a391e49-eba4-49ca-a16b-f37cc50bb85b
 # ╠═faa9e056-2c53-4cd3-a24e-15dd593beaa3
 # ╠═6a4ea7d3-6c16-4530-94a1-ee17a157fc2d
+# ╟─6e011bd2-ea7e-4fa0-ad61-b71d70e37bc8
+# ╟─36248e47-e567-4190-bcb1-6ed8b2bf9dfd
 # ╠═8d7cc493-94eb-4f0e-94a1-be8cab97488a
 # ╠═fd33fce0-6451-4d8a-a72e-2be8ed38e208
 # ╠═7d6a91c6-feae-48ab-9cae-2a70f869f70d
 # ╠═34cf0e49-fdae-4c2e-83c5-eb2f33088db3
-# ╠═bb21d4a8-73b8-4ef9-a20a-3066db9c774c
-# ╠═37ad8d38-e5e2-4e35-9dbf-773cac0c6cb5
-# ╠═88780d2f-5f73-48c3-8c55-9dbf0b2bb22b
+# ╟─ee44dcec-6bfc-4a5c-9593-3996c29828ca
+# ╠═0524a704-d040-4ff2-be90-49a47ae92762
+# ╠═fdd451c5-84e4-4ffd-8b15-f628796d07ca
+# ╠═12e0bdd9-daf7-4d04-b71a-869608bdccd2
+# ╠═87c54ad2-a74e-4f7d-81af-745b332befb5
 # ╟─b8f50b94-d436-46f6-ba59-5138b34cb3d3
 # ╟─44fcd0bb-40a1-4c19-bab0-9535bb755a6d
 # ╟─cc5c79c3-a75f-4074-87e9-4b0e7e5a2ca3
@@ -3172,8 +3283,13 @@ version = "1.4.1+1"
 # ╟─63a937c0-ce9d-4def-b994-58d80f6bf5df
 # ╠═c58b2a48-aa24-4c5c-9be9-6e883a7b8108
 # ╠═9b581328-85fb-48a5-bba1-7147b490b3df
+# ╟─06aced57-3a05-4240-b17b-7c9cd5b8192e
+# ╟─3b821a2f-b912-40b3-a85d-6325739511f5
+# ╟─5a9a6b0f-088c-4906-ac2f-d5458443044c
 # ╠═b2ba4427-5dcb-482f-ad6c-aa97ee9ef2d3
 # ╠═68f02d18-8767-4b52-9eab-592ede3cb181
-# ╠═b0634992-6c0b-4bb1-bc74-56600a394549
+# ╟─eea7bc27-318c-4c2f-8ff7-e48adba5b1e8
+# ╟─86ceea99-d72a-46e5-8022-d5b96d14d7e1
+# ╟─2750eb8a-b5df-412d-ac6c-c1bc1f7e7b64
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
