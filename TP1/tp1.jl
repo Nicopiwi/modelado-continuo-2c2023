@@ -16,20 +16,6 @@ md""" Asignamos una semilla aleatoria para garantizar reproducibilidad """
 # ╔═╡ a25de38b-4ce4-4acb-9b14-87ee27003f5c
 global_random_seed = 1234;
 
-# ╔═╡ ac0e8f13-69b6-421d-81f6-205a0f54586b
-begin
-datos_prueba = CSV.read("./primeraOla.csv", DataFrame);
-datos_prueba_a=datos_prueba[!,:Column1]
-datos_prueba_a	
-	#df[!, :A] 
-end	
-
-# ╔═╡ 78484a16-8f4f-4cde-8873-dea511200cf7
-
-
-# ╔═╡ bdb0418b-5804-4dd0-bf66-b5595419746d
-
-
 # ╔═╡ c1bd779a-b9a4-488f-bba4-05ee372828e9
 md"""# TP $n^\circ$ 1: Modelado de datos de COVID.
 
@@ -86,12 +72,6 @@ begin
 	
 end
 
-# ╔═╡ 777786c4-b6bf-4b65-af64-66659b769536
-dataCases[:, :New_cases]
-
-# ╔═╡ 9b2b8344-44f7-4a7f-8255-699cf80a1aec
-maximum(dataCases[:, :New_cases])
-
 # ╔═╡ 23dd288a-1428-4081-9ff0-a9ddc0c4d346
 md""" ### Agrupamiento por semanas """
 
@@ -118,18 +98,16 @@ md""" ### Graficamos los casos en función a la semana"""
 plot(weeklyNewCases.NewCases)
 
 # ╔═╡ af98c3c6-a58c-40c4-87cd-bca3ce30e661
-md""" Podemos elegir a 1 como el comienzo de la primera ola, y la semana siguiente al final de la primera como el comienzo de la segunda. """
+md""" Podemos elegir a la semana 1 como el comienzo de la primera ola, y la semana 41 como el final de la primera y el comienzo de la segunda. Estos valores fueron obtenidos por una aproximación a ojo """
 
 # ╔═╡ 65f8859f-fb9d-4c4e-b53f-2eb3ebdb0e8b
 begin
+	# Variables que usamos para definir los rangos de semanas
 	start1 = 1
 	end1 = 41
 	start2 = 41
 	end2 = 52
 end
-
-# ╔═╡ 698ce621-766b-40bb-9a3d-0fd2ae6f13f4
-end1
 
 # ╔═╡ a4ded4f6-21f8-4d9e-b6c5-eb7fa634a738
 md""" ### Primera Ola """
@@ -163,13 +141,6 @@ begin
 	weeklyNewDeathsFirstWave = weeklyNewDeaths.NewDeaths[start1:end1];
 	weeklyNewDeathsSecondWave = weeklyNewDeaths.NewDeaths[start2:end2];
 end
-
-# ╔═╡ 66250845-5c26-403a-8efd-99822f2e78a2
-#CSV.write("primeraOla.csv",  DataFrame(weeklyNewCasesFirstWave))
-begin
-df = DataFrame(Column1 = weeklyNewCasesFirstWave)
-CSV.write("primeraOla.csv", df)
-end	
 
 # ╔═╡ ddf46cb1-9f4a-43e7-820a-7722a865f0fe
 md""" ## Modelado: 
@@ -388,6 +359,17 @@ end
 
 # ╔═╡ 689f9f65-7e51-4526-99cd-52e2c3cfe78f
 test_costo()
+
+# ╔═╡ 1661b0cb-bb9e-40aa-8346-3b791a3e2c39
+md""" ## Funcion de busqueda de hiperparametros
+Para encontrar los bounds óptimos para las funciones de ajuste usamos una función de busqueda llamada search para afrontar el problema de los optimos locales. 
+La función **search** opera generando hiperparámetros aleatorios dentro de un rango predefinido y aplicando la función de ajuste sobre ellos. Posteriormente, con los valores de los parámetros derivados de esta función de ajuste, calculamos el costo asociado. Si este costo resulta ser inferior al mejor costo registrado hasta el momento, actualizamos nuestros hiperparámetros óptimos con los valores recién obtenidos. 
+
+Se debe resaltar que esta función es computacionalmente costosa. Incluso con tan solo 100 iteraciones, el tiempo de ejecución puede ser significativo. Debido a esta alta demanda de tiempo, ejecutamos la función de forma independiente y hemos colocado el código en un archivo separado llamado **search.jl** para mantener la organización y modularidad del código principal. 
+"""
+
+# ╔═╡ b629aa53-518a-4fc5-9470-91430b5f3e54
+md""" ## Ajuste SIR """
 
 # ╔═╡ 2d975c53-f949-44f2-b6c3-956bcc4a0b60
 function ajustar_sir(t0, tf, data, costo_func)
@@ -688,11 +670,6 @@ plot_sol_2_waves
 # ╔═╡ f576223d-cdbe-4939-bc4a-96a226e002ca
 plot_comparison_2_waves
 
-# ╔═╡ 5e682616-2c70-4bc8-b6fe-bef9e2b17699
-md""" 
-
-"""
-
 # ╔═╡ 1a391e49-eba4-49ca-a16b-f37cc50bb85b
 md""" ## Segunda Parte
 La idea de la segunda parte del trabajo es intentar mejorar los ajustes anteriores. Para ello sugerimos distintas variantes. Cada grupo deberá elegir al menos una y explorarla, comparando los resultados con los anteriores. 
@@ -890,9 +867,6 @@ plot_comparison_subregistro
 
 # ╔═╡ b0634992-6c0b-4bb1-bc74-56600a394549
 plot_sol_subregistro
-
-# ╔═╡ 4b7546e4-1ad2-4be9-9d43-46b7caa54175
-
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -3114,23 +3088,17 @@ version = "1.4.1+1"
 # ╠═12946327-c68e-45d6-9e4f-2e877a5d868a
 # ╟─e7882bce-0501-4920-9953-49d81d4134cd
 # ╠═a25de38b-4ce4-4acb-9b14-87ee27003f5c
-# ╠═ac0e8f13-69b6-421d-81f6-205a0f54586b
-# ╠═78484a16-8f4f-4cde-8873-dea511200cf7
-# ╠═bdb0418b-5804-4dd0-bf66-b5595419746d
 # ╟─c1bd779a-b9a4-488f-bba4-05ee372828e9
 # ╟─7bfd4205-a13e-4ce4-9a8f-9c1e86414550
 # ╟─c3e2631a-c0f7-438b-94da-c6f85d13b917
 # ╠═6c10386c-3dcb-42d8-b834-85e70fb2b3eb
 # ╠═f61bc43c-f34b-4d2b-a161-dcdec35c45db
-# ╠═777786c4-b6bf-4b65-af64-66659b769536
-# ╠═9b2b8344-44f7-4a7f-8255-699cf80a1aec
 # ╟─23dd288a-1428-4081-9ff0-a9ddc0c4d346
 # ╠═47cb9fd6-7f44-46a2-ac18-f47f9a1af7e5
 # ╟─ba08e6e3-5a2d-4351-a1c8-e3a70cf677cf
 # ╠═0ec43ade-b2d1-419c-9dd8-05a3fba3dc57
-# ╠═af98c3c6-a58c-40c4-87cd-bca3ce30e661
+# ╟─af98c3c6-a58c-40c4-87cd-bca3ce30e661
 # ╠═65f8859f-fb9d-4c4e-b53f-2eb3ebdb0e8b
-# ╠═698ce621-766b-40bb-9a3d-0fd2ae6f13f4
 # ╟─a4ded4f6-21f8-4d9e-b6c5-eb7fa634a738
 # ╠═51d7fc7c-dc38-4c3c-a816-05d7c50a9f05
 # ╟─54b96729-a475-494b-86f8-a2188593ce33
@@ -3139,7 +3107,6 @@ version = "1.4.1+1"
 # ╠═6d3a0ccc-643c-4a4e-af21-76fd75bfcf8e
 # ╟─8d023828-3314-4ac8-becd-2d5f896f8190
 # ╠═b8bd7ee6-92f8-44c4-96e7-6d86575025e1
-# ╠═66250845-5c26-403a-8efd-99822f2e78a2
 # ╟─ddf46cb1-9f4a-43e7-820a-7722a865f0fe
 # ╟─7386a708-0bdc-4bec-8c3e-9c6b5f7d30a6
 # ╠═14c0f3b9-36b6-4d9b-bba8-4d417311acaa
@@ -3155,9 +3122,11 @@ version = "1.4.1+1"
 # ╟─82c4e128-a488-4032-acaf-2b0549cea8f0
 # ╟─60ae80a6-2354-4c68-abd8-2cc2f839d4db
 # ╠═df275ce2-59f3-4e1a-aee2-5f6f3a0fed64
-# ╠═d38f2c0f-1bb0-4113-9dbb-d407ab8ea96f
+# ╟─d38f2c0f-1bb0-4113-9dbb-d407ab8ea96f
 # ╠═bc841a10-0b43-4d8d-9dd7-d40408e765b3
 # ╠═689f9f65-7e51-4526-99cd-52e2c3cfe78f
+# ╠═1661b0cb-bb9e-40aa-8346-3b791a3e2c39
+# ╟─b629aa53-518a-4fc5-9470-91430b5f3e54
 # ╠═2d975c53-f949-44f2-b6c3-956bcc4a0b60
 # ╠═aab70191-23d1-42b4-86b3-c9154d1cc5ba
 # ╟─1353ba07-59d1-4511-9fb9-d102d8f141c2
@@ -3169,7 +3138,7 @@ version = "1.4.1+1"
 # ╟─4e0aaf37-4150-4526-b0fe-707bd8d9602b
 # ╟─f8e8308e-c41b-4567-b210-3bb41d24925f
 # ╠═9c56ca66-5892-4fad-abb7-4071993cb414
-# ╠═d89652d0-d82c-4d23-b9ca-2b96f8dee98e
+# ╟─d89652d0-d82c-4d23-b9ca-2b96f8dee98e
 # ╠═fa9ae04c-94df-42eb-ae42-36abe0724a95
 # ╠═deab9ac9-8925-4bec-b347-9dc90f4ed33b
 # ╠═fc20f1f9-03fe-40a3-b436-285a21f4cb8d
@@ -3177,7 +3146,7 @@ version = "1.4.1+1"
 # ╠═11f08c24-ae75-46af-9380-8069a6a8fe03
 # ╠═96499d60-6da0-4b3f-a6eb-522328f76130
 # ╠═77c8010b-4c32-43f2-a000-9a59f2a2d8ea
-# ╠═030111d0-8b5e-4c42-8bf9-79ccf2de0a49
+# ╟─030111d0-8b5e-4c42-8bf9-79ccf2de0a49
 # ╠═a3154bd8-a747-4542-a70e-eeadccae9891
 # ╠═d7d7be4c-367c-47bc-9bda-5c52cb99b32d
 # ╠═f8672f45-1ae6-4275-a9f1-2c50a29e4f6a
@@ -3186,7 +3155,6 @@ version = "1.4.1+1"
 # ╠═409901e6-f7ae-4e9d-b7bf-a050931bb954
 # ╠═31436583-d97b-4815-bd02-bb50f0a12834
 # ╠═f576223d-cdbe-4939-bc4a-96a226e002ca
-# ╠═5e682616-2c70-4bc8-b6fe-bef9e2b17699
 # ╟─1a391e49-eba4-49ca-a16b-f37cc50bb85b
 # ╠═faa9e056-2c53-4cd3-a24e-15dd593beaa3
 # ╠═6a4ea7d3-6c16-4530-94a1-ee17a157fc2d
@@ -3207,6 +3175,5 @@ version = "1.4.1+1"
 # ╠═b2ba4427-5dcb-482f-ad6c-aa97ee9ef2d3
 # ╠═68f02d18-8767-4b52-9eab-592ede3cb181
 # ╠═b0634992-6c0b-4bb1-bc74-56600a394549
-# ╠═4b7546e4-1ad2-4be9-9d43-46b7caa54175
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

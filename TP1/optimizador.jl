@@ -14,6 +14,14 @@
 # Pkg.add("Random")
 # Pkg.add("Optimization")
 # Pkg.add("OptimizationOptimJL")
+
+##CSV.write("primeraOla.csv",  DataFrame(weeklyNewCasesFirstWave))
+# begin
+# df = DataFrame(Column1 = weeklyNewCasesFirstWave)
+# CSV.write("primeraOla.csv", df)
+# end	
+
+
 using DataFrames, CSV, Plots, DifferentialEquations, Optimization, DiffEqParamEstim,OptimizationOptimJL,Dates, PlutoUI, TimeSeries, Interpolations, Random
 global_random_seed = 1234;
 df = CSV.read("./primeraOla.csv", DataFrame);
