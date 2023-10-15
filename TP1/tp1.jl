@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.27
+# v0.19.29
 
 using Markdown
 using InteractiveUtils
@@ -15,6 +15,20 @@ md""" Asignamos una semilla aleatoria para garantizar reproducibilidad """
 
 # ╔═╡ a25de38b-4ce4-4acb-9b14-87ee27003f5c
 global_random_seed = 1234;
+
+# ╔═╡ ac0e8f13-69b6-421d-81f6-205a0f54586b
+begin
+datos_prueba = CSV.read("./primeraOla.csv", DataFrame);
+datos_prueba_a=datos_prueba[!,:Column1]
+datos_prueba_a	
+	#df[!, :A] 
+end	
+
+# ╔═╡ 78484a16-8f4f-4cde-8873-dea511200cf7
+
+
+# ╔═╡ bdb0418b-5804-4dd0-bf66-b5595419746d
+
 
 # ╔═╡ c1bd779a-b9a4-488f-bba4-05ee372828e9
 md"""# TP $n^\circ$ 1: Modelado de datos de COVID.
@@ -149,6 +163,13 @@ begin
 	weeklyNewDeathsFirstWave = weeklyNewDeaths.NewDeaths[start1:end1];
 	weeklyNewDeathsSecondWave = weeklyNewDeaths.NewDeaths[start2:end2];
 end
+
+# ╔═╡ 66250845-5c26-403a-8efd-99822f2e78a2
+#CSV.write("primeraOla.csv",  DataFrame(weeklyNewCasesFirstWave))
+begin
+df = DataFrame(Column1 = weeklyNewCasesFirstWave)
+CSV.write("primeraOla.csv", df)
+end	
 
 # ╔═╡ ddf46cb1-9f4a-43e7-820a-7722a865f0fe
 md""" ## Modelado: 
@@ -373,7 +394,7 @@ function ajustar_sir(t0, tf, data, costo_func)
 	# Consideramos que la cantidad de susceptibles es inicialmente casi la totalidad
 	# de la población. Y que el tiempo promedio entre contagios y de recuperación es 
 	# de una semana aproximadamente
-	params   = [0.99, 1, 1]
+	params   = [0.9999, 3.9, 10.15]
 
 	# Creamos un ODEProblem con parámetros iniciales elegidos a nuestro criterio
 	sir_prob     = ODEProblem(SIR!, [params[1], 1-params[1], 0],(t0, tf), params[2:3], abstol=1e-14,reltol=1e-10)
@@ -389,7 +410,7 @@ function ajustar_sir(t0, tf, data, costo_func)
 			],p=q[2:3]
 		)
 	)
-	optprob = OptimizationProblem(sir_func, params, lb=[0.99, 0, 0], ub=[1, 7, 7])
+	optprob = OptimizationProblem(sir_func, params, lb=[0.9999, 3.9, 10.15], ub=[1, 10.65, 13.88])
 
 	# Como no es un problema el tiempo de ejecución, ingresamos un valor alto 
 	# para el hiperparámetro 'rt' del Simulated Annealing (geometric temperature), para darle robustez a los resultados que consiga el solver.
@@ -410,7 +431,7 @@ md""" ## Ajuste SEIR """
 
 # ╔═╡ 21814cf5-40a1-4298-90dc-d4e57fd96eed
 function ajustar_seir(t0, tf, data, costo_func)
-	S0,ρ,β,σ,γ   = [0.999, 0.1, 1, 1, 1]
+	S0,ρ,β,σ,γ   = [0.9999, 1.72, 14.03, 19.94, 14.65]
 	
 	seir_prob     = ODEProblem(
 		SEIR!, [S0, ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ])
@@ -430,13 +451,14 @@ function ajustar_seir(t0, tf, data, costo_func)
 		)
 	)
 	
-	optProb_seir = OptimizationProblem(seir_func, [S0,ρ,β,σ,γ], lb=[0.99, 0, 0, 0, 0],ub=[1,1,14,14,14])
+	optProb_seir = OptimizationProblem(seir_func, [S0,ρ,β,σ,γ], lb=[0.9999, 1.72, 14.03, 19.94, 14.65],ub=[1,14.85,28.58,25.52,18.68])
 	fitted_params = solve(optProb_seir,SAMIN(rt=0.98),maxiters=500000)
 
 	return fitted_params
 end
 
 # ╔═╡ 99563d42-da05-47ac-bff8-fac927709585
+# ╠═╡ show_logs = false
 begin
 	Random.seed!(1234)
 	params_seir = ajustar_seir(start1, end1, weeklyNewCasesFirstWave, costo)
@@ -448,7 +470,7 @@ md""" ## Ajuste SEIRS """
 
 # ╔═╡ 7ea16785-ef95-4e00-8385-600b64b29042
 function ajustar_seirs(t0, tf, data, costo_func)
-	S0,ρ,β,σ,γ,δ   = [0.99, 0.1, 4, 4, 1, 0.1]
+	S0,ρ,β,σ,γ,δ   = [0.9999, 1.72, 14.03, 19.94, 14.65, 0.001]
 	seir_prob     = ODEProblem(SEIRS!, [S0,ρ*(1-S0),1-S0-ρ*(1-S0), 0.],(t0, tf), [β,σ,γ,δ],abstol=1e-14,reltol=1e-10)
 	seirs_func     = build_loss_objective(
 		seir_prob,AutoTsit5(Rosenbrock23()),
@@ -466,15 +488,16 @@ function ajustar_seirs(t0, tf, data, costo_func)
 	optProb_seir = OptimizationProblem(
 		seirs_func, 
 		[S0,ρ,β,σ,γ,δ], 
-		lb=[0.99, 0, 3, 3, 0, 0],
-		ub=[1,1,5,5,20,1]
+		lb=[0.9999, 1.72, 14.03, 19.94, 14.65, 0.001],
+		ub=[1,14.85,28.58,25.52,18.68,0.1]
 	)
-	fitted_params = solve(optProb_seir,SAMIN(rt=0.97),maxiters=1000000)
+	fitted_params = solve(optProb_seir,SAMIN(rt=0.97),maxiters=100000)
 
 	return fitted_params
 end
 
 # ╔═╡ f3d16260-c9d1-4667-b209-433b31b9e47a
+# ╠═╡ show_logs = false
 begin
 	Random.seed!(global_random_seed)
 	params_seirs = ajustar_seirs(start1, end1, weeklyNewCasesFirstWave, costo)
@@ -502,7 +525,7 @@ En los tres casos, se ven gráficos adecuados, gracias a que hemos ajustado, med
 Para determinar cual permite obtener un menor error de ajuste, nos basamos en el costo final obtenido con los parámetros ya ajustados. El SEIR fue el modelo que mejor ajustó a los datos (ver abajo), aunque en muchas ocasiones, al variar los hiperparámetros, el SIR ajustaba mejor. Esto puede parecer contradictorio, ya que el SEIRS tiene más parámetros. Y por lo tanto, más grados de libertad. Sin embargo, agrega más mínimos locales. Además, al ajustar una sóla ola, puede ser que el efecto de perder la inmunidad no sea muy relevante los datos.
 Igualmente, los resultados fueron obtenidos a partir de varios intentos de nuestra parte de mejorar el ajuste, por lo que no podemos afirmar cuál es el que mejor ajuste tiene. Podríamos, haber realizado una búsqueda sistemática de hiperparámetros, pero la misma sería bastante costosa.
 
-En cuanto a si los resultados obtenidos tienen sentido, los resultados parecen indicar que el modelo ajusta mejor con parametros que no parecen estar relacionados con las ideas aqui descriptas. Para las tasas cuyo inverso determina el tiempo medio en semanas de alguna caracerística que queramos modelar, en general les asignamos un rango de búsqueda de entre 0 y algún valor mayor a 10. Y han aparecido valores relativamente altos. Por ejemplo en el SEIR, que es el modelo que mejor ajustó, β (tasa de transmición), σ (tasa de recuperación) y γ (tasa de exposición) con valores de alrededor de 7. Tomando inversos, nos da que aproximadamente el tiempo medio entre contagios, recuperación e incubación es de un día. Lo cual no es lo que se ha reflejado en la pandemia según datos conocidos. Lo cual puede tener sentido pues cuando uno disminuye el tiempo medio de contagio o tiempo de incubacion, le permite al modelo una variabilidad mucho mayor, para ajustar una sóla ola.
+En cuanto a si los resultados obtenidos tienen sentido, los resultados parecen indicar que el modelo ajusta mejor con parametros que no parecen estar relacionados con las ideas aqui descriptas. El inverso de las tasas determina el tiempo medio en semanas de las caracteristicas que queremos modelar. Sin embargo para nuestra aproximacion a los parametros hemos flexibilizado los lower y los upper bounds para abarcar un rango de valores mayor. El resultado de esta flexibilizacion han sido a veces parametros con valores muy altos. Por ejemplo en el SEIR, que es el modelo que mejor ajustó, β (tasa de transmición), σ (tasa de recuperación) y γ (tasa de exposición) con valores de alrededor de 25. Tomando inversos, nos da que aproximadamente el tiempo medio entre contagios, recuperación e incubación es de unas horas. Estos resultados no se han visto reflejados en los datos conocidos de la pandemia. Esto se puede deber a que cuando uno disminuye el tiempo medio de contagio o tiempo de incubacion, le permite al modelo una variabilidad mucho mayor, para ajustar una sóla ola.
 
 A continuación, se muestran los resultados obtenidos
 """
@@ -649,6 +672,7 @@ Finalmente, con el modelo SEIRS se puede intentar ajustar conjuntamente las dos 
 
 
 # ╔═╡ 717fb42e-d967-4548-8bba-72f32af5107f
+# ╠═╡ show_logs = false
 begin
 	Random.seed!(global_random_seed)
 	params_seirs_2_waves = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2], costo)
@@ -663,6 +687,11 @@ plot_sol_2_waves
 
 # ╔═╡ f576223d-cdbe-4939-bc4a-96a226e002ca
 plot_comparison_2_waves
+
+# ╔═╡ 5e682616-2c70-4bc8-b6fe-bef9e2b17699
+md""" 
+
+"""
 
 # ╔═╡ 1a391e49-eba4-49ca-a16b-f37cc50bb85b
 md""" ## Segunda Parte
@@ -773,6 +802,7 @@ plot_sol_sir_robusto
 plot_comparison_sir_robusto
 
 # ╔═╡ bb21d4a8-73b8-4ef9-a20a-3066db9c774c
+# ╠═╡ show_logs = false
 begin
 	Random.seed!(global_random_seed)
 	params_seirs_2_waves_robusto = ajustar_seirs(start1, end2, weeklyNewCases.NewCases[start1:end2], costo_robusto)
@@ -809,7 +839,7 @@ md""" Proponemos ajustar la primera ola utilizando la nueva función de costo, y
 
 # ╔═╡ c58b2a48-aa24-4c5c-9be9-6e883a7b8108
 function ajustar_seir_con_subregistro(t0, tf, data, costo_func)
-	S0,ρ,β,σ,γ,α   = [0.999, 0.1, 1, 1, 1, 0.95]
+	S0,ρ,β,σ,γ,α   = [0.9999, 1.72, 14.03, 19.94, 14.65,0.95]
 	
 	ode_prob     = ODEProblem(
 		Subregistro!, [S0, ρ*(1-S0),α*(1-S0-ρ*(1-S0)), (1-α)*(1-S0-ρ*(1-S0)), 0.],(t0, tf), [β,σ,γ,α]
@@ -831,12 +861,12 @@ function ajustar_seir_con_subregistro(t0, tf, data, costo_func)
 			p=q[3:6]
 		)
 	)
-
+#lb=[0.9999, 1.72, 14.03, 19.94, 14.65],ub=[1,14.85,28.58,25.52,18.68]
 	optProb = OptimizationProblem(
 		problem_func,
 		[S0,ρ,β,σ,γ,α],
-		lb=[0.99, 0.1, 0, 0, 0, 0.9],
-		ub=[1,1,7,7,7,1]
+		lb=[0.9999, 1.72, 14.03, 19.94, 14.65,0.95],
+		ub=[1,14.85,28.58,25.52,18.68,1]
 	)
 	fitted_params = solve(optProb,SAMIN(rt=0.98),maxiters=500000)
 	
@@ -845,6 +875,7 @@ function ajustar_seir_con_subregistro(t0, tf, data, costo_func)
 end
 
 # ╔═╡ 9b581328-85fb-48a5-bba1-7147b490b3df
+# ╠═╡ show_logs = false
 begin
 	Random.seed!(global_random_seed)
 	params_subregistro = ajustar_seir_con_subregistro(start1, end1, weeklyNewCasesFirstWave, costo_robusto)
@@ -1290,13 +1321,12 @@ version = "7.10.0"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
-git-tree-sha1 = "5225c965635d8c21168e32a12954675e7bea1151"
+git-tree-sha1 = "b6def76ffad15143924a2199f72a5cd883a2e8a9"
 uuid = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-version = "0.10.10"
-weakdeps = ["ChainRulesCore", "SparseArrays"]
+version = "0.10.9"
+weakdeps = ["SparseArrays"]
 
     [deps.Distances.extensions]
-    DistancesChainRulesCoreExt = "ChainRulesCore"
     DistancesSparseArraysExt = "SparseArrays"
 
 [[deps.Distributed]]
@@ -1617,12 +1647,6 @@ git-tree-sha1 = "9cc2baf75c6d09f9da536ddf58eb2f29dedaf461"
 uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
 version = "1.4.0"
 
-[[deps.IntelOpenMP_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
-uuid = "1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0"
-version = "2023.2.0+0"
-
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
@@ -1749,10 +1773,6 @@ git-tree-sha1 = "1370f8202dac30758f3c345f9909b97f53d87d3f"
 uuid = "50d2b5c4-7a5e-59d5-8109-a42b560f39c0"
 version = "0.15.1"
 
-[[deps.LazyArtifacts]]
-deps = ["Artifacts", "Pkg"]
-uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
-
 [[deps.LeftChildRightSiblingTrees]]
 deps = ["AbstractTrees"]
 git-tree-sha1 = "fb6803dafae4a5d62ea5cab204b1e657d9737e7f"
@@ -1846,10 +1866,10 @@ deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LinearSolve]]
-deps = ["ArrayInterface", "ConcreteStructs", "DocStringExtensions", "EnumX", "EnzymeCore", "FastLapackInterface", "GPUArraysCore", "InteractiveUtils", "KLU", "Krylov", "Libdl", "LinearAlgebra", "MKL_jll", "PrecompileTools", "Preferences", "RecursiveFactorization", "Reexport", "Requires", "SciMLBase", "SciMLOperators", "Setfield", "SparseArrays", "Sparspak", "SuiteSparse", "UnPack"]
-git-tree-sha1 = "55dc29b3fb5592d78abcdd18cfa0ec7ae324749e"
+deps = ["ArrayInterface", "ConcreteStructs", "DocStringExtensions", "EnumX", "EnzymeCore", "FastLapackInterface", "GPUArraysCore", "InteractiveUtils", "KLU", "Krylov", "Libdl", "LinearAlgebra", "PrecompileTools", "Preferences", "RecursiveFactorization", "Reexport", "Requires", "SciMLBase", "SciMLOperators", "Setfield", "SparseArrays", "Sparspak", "SuiteSparse", "UnPack"]
+git-tree-sha1 = "ba01f7a97d3d8bd711b2c00a8a68c887d8a85c9d"
 uuid = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
-version = "2.9.0"
+version = "2.8.1"
 
     [deps.LinearSolve.extensions]
     LinearSolveBlockDiagonalsExt = "BlockDiagonals"
@@ -1859,6 +1879,7 @@ version = "2.9.0"
     LinearSolveIterativeSolversExt = "IterativeSolvers"
     LinearSolveKernelAbstractionsExt = "KernelAbstractions"
     LinearSolveKrylovKitExt = "KrylovKit"
+    LinearSolveMKLExt = "MKL_jll"
     LinearSolveMetalExt = "Metal"
     LinearSolvePardisoExt = "Pardiso"
 
@@ -1870,6 +1891,7 @@ version = "2.9.0"
     IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
     KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
     KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
+    MKL_jll = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
     Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
     Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 
@@ -1913,12 +1935,6 @@ weakdeps = ["ChainRulesCore", "ForwardDiff", "SpecialFunctions"]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
 version = "0.1.4"
-
-[[deps.MKL_jll]]
-deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
-uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
-version = "2023.2.0+0"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -3098,6 +3114,9 @@ version = "1.4.1+1"
 # ╠═12946327-c68e-45d6-9e4f-2e877a5d868a
 # ╟─e7882bce-0501-4920-9953-49d81d4134cd
 # ╠═a25de38b-4ce4-4acb-9b14-87ee27003f5c
+# ╠═ac0e8f13-69b6-421d-81f6-205a0f54586b
+# ╠═78484a16-8f4f-4cde-8873-dea511200cf7
+# ╠═bdb0418b-5804-4dd0-bf66-b5595419746d
 # ╟─c1bd779a-b9a4-488f-bba4-05ee372828e9
 # ╟─7bfd4205-a13e-4ce4-9a8f-9c1e86414550
 # ╟─c3e2631a-c0f7-438b-94da-c6f85d13b917
@@ -3120,6 +3139,7 @@ version = "1.4.1+1"
 # ╠═6d3a0ccc-643c-4a4e-af21-76fd75bfcf8e
 # ╟─8d023828-3314-4ac8-becd-2d5f896f8190
 # ╠═b8bd7ee6-92f8-44c4-96e7-6d86575025e1
+# ╠═66250845-5c26-403a-8efd-99822f2e78a2
 # ╟─ddf46cb1-9f4a-43e7-820a-7722a865f0fe
 # ╟─7386a708-0bdc-4bec-8c3e-9c6b5f7d30a6
 # ╠═14c0f3b9-36b6-4d9b-bba8-4d417311acaa
@@ -3166,6 +3186,7 @@ version = "1.4.1+1"
 # ╠═409901e6-f7ae-4e9d-b7bf-a050931bb954
 # ╠═31436583-d97b-4815-bd02-bb50f0a12834
 # ╠═f576223d-cdbe-4939-bc4a-96a226e002ca
+# ╠═5e682616-2c70-4bc8-b6fe-bef9e2b17699
 # ╟─1a391e49-eba4-49ca-a16b-f37cc50bb85b
 # ╠═faa9e056-2c53-4cd3-a24e-15dd593beaa3
 # ╠═6a4ea7d3-6c16-4530-94a1-ee17a157fc2d
