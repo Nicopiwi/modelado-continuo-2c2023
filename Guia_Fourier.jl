@@ -15,7 +15,7 @@ macro bind(def, element)
 end
 
 # ╔═╡ d711d876-6833-11ee-1896-efeed89c2a74
-using Plots, WAV, PlutoUI
+using Plots, WAV, PlutoUI, FFTW, BenchmarkTools
 
 # ╔═╡ 6ab7ccd1-dc52-498c-baf4-e143d3375bae
 function ej1(amp, w)
@@ -96,10 +96,10 @@ end
 # ╔═╡ 58b7e00f-872f-4a76-b680-fead68268ad7
 function ej9()
 	f(t) = t^4
-	range_coeffs = [coeffs(N, f) for N in 0:20]
+	range_coeffs = [coeffs(N, f) for N in 1:20]
 
 	function series(t)
-		vals = [a*cos(t*(N-1)) + b*sin(t*(N-1)) for (N, (a, b)) in enumerate(range_coeffs[2:end])]
+		vals = [a*cos(t*(N)) + b*sin(t*(N)) for (N, (a, b)) in enumerate(range_coeffs[1:end])]
 
 		return (coeffs(0, f)[1]/2)+sum(vals)
 	end
@@ -110,14 +110,68 @@ end
 # ╔═╡ 0e18893b-7470-4215-a50a-787e9b3e7b54
 ej9()
 
+# ╔═╡ cdc3cded-fe36-4f48-baae-26e0169edaf3
+md""" ### Fourier discreta """
+
+# ╔═╡ 7342e3af-a11b-4376-8e33-2f7043861f47
+function my_fft(v)
+	N = length(v)
+	if (N == 1)
+		return v
+	end
+	l = ceil(log2(N))
+	N_new = Int(2^l)
+	v = [v..., zeros(N_new-N)...]
+	N = N_new
+	vp = v[1:2:end]
+	vi = v[2:2:end]
+	v̂ = Complex.(v)
+	p̂ = my_fft(vp)
+	î = my_fft(vi)
+
+	for k in 1:Int(N/2)
+		v̂[k] = p̂[k] + exp(-2*π*im*(k-1)/N)*î[k]
+		v̂[k+Int(N/2)] = p̂[k] - exp(-2*π*im*(k-1)/N)*î[k]
+	end
+
+	return v̂
+end
+
+# ╔═╡ 3a8c390f-bbab-441a-8751-7f0f5623f150
+ej14_f(t) = 3*sin(10*t) + 5*sin(20*t) + rand()
+
+# ╔═╡ 6dac4f2c-393c-49ee-b81c-133e471dc33a
+[ej14_f.(-1:0.01:1)...]
+
+# ╔═╡ bde43773-6985-4991-b5a4-9e93c1d783f1
+function ej14()
+	v = [ej14_f.(0:0.01:2)...]
+	res = my_fft(v)
+	my_plot = plot(abs.(res[1:length(v)]))
+	return my_plot
+end
+
+# ╔═╡ ed8f7f60-322d-47d0-9f90-45c8cfe4aff8
+transform_plot = ej14()
+
+# ╔═╡ 30653375-3bb0-4003-9028-9c0718366005
+plot(abs.(fftshift(fft([ej14_f.(0:0.01:2)...]))))
+
+# ╔═╡ 4ae861a1-c354-47ce-800f-aa8c96ab7a04
+
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 WAV = "8149f6b0-98f6-5db9-b78f-408fbbb8ef88"
 
 [compat]
+BenchmarkTools = "~1.3.2"
+FFTW = "~1.7.1"
 Plots = "~1.39.0"
 PlutoUI = "~0.7.52"
 WAV = "~1.2.0"
@@ -129,6 +183,12 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.7.2"
 manifest_format = "2.0"
+
+[[deps.AbstractFFTs]]
+deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
+git-tree-sha1 = "d92ad398961a3ed262d8bf04a1a2b8340f915fef"
+uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
+version = "1.5.0"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -144,6 +204,12 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[deps.BenchmarkTools]]
+deps = ["JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
+git-tree-sha1 = "d9a9701b899b30332bbcb3e1679c41cce81fb0e8"
+uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+version = "1.3.2"
 
 [[deps.BitFlags]]
 git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
@@ -290,6 +356,18 @@ git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.2+2"
 
+[[deps.FFTW]]
+deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
+git-tree-sha1 = "b4fbdd20c889804969571cc589900803edda16b7"
+uuid = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+version = "1.7.1"
+
+[[deps.FFTW_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
+uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
+version = "3.3.10+0"
+
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "299dc33549f68299137e51e6d49a13b5b1da9673"
@@ -397,6 +475,12 @@ git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.3"
 
+[[deps.IntelOpenMP_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "ad37c091f7d7daf900963171600d7c1c5c3ede32"
+uuid = "1d5cc7b8-4909-519e-a0f8-d0f5ad9712d0"
+version = "2023.2.0+0"
+
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
@@ -470,6 +554,10 @@ deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdow
 git-tree-sha1 = "f428ae552340899a935973270b8d98e5a31c49fe"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 version = "0.16.1"
+
+[[deps.LazyArtifacts]]
+deps = ["Artifacts", "Pkg"]
+uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -561,6 +649,12 @@ version = "1.0.3"
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
 version = "0.1.4"
+
+[[deps.MKL_jll]]
+deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
+git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
+uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
+version = "2023.2.0+0"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -709,6 +803,10 @@ version = "1.4.1"
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[deps.Profile]]
+deps = ["Printf"]
+uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 
 [[deps.Qt6Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Vulkan_Loader_jll", "Xorg_libSM_jll", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_cursor_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "libinput_jll", "xkbcommon_jll"]
@@ -1181,5 +1279,13 @@ version = "1.4.1+1"
 # ╠═e1e6051f-6520-44b3-8023-fcd6cd869443
 # ╠═58b7e00f-872f-4a76-b680-fead68268ad7
 # ╠═0e18893b-7470-4215-a50a-787e9b3e7b54
+# ╟─cdc3cded-fe36-4f48-baae-26e0169edaf3
+# ╠═7342e3af-a11b-4376-8e33-2f7043861f47
+# ╠═3a8c390f-bbab-441a-8751-7f0f5623f150
+# ╠═6dac4f2c-393c-49ee-b81c-133e471dc33a
+# ╠═bde43773-6985-4991-b5a4-9e93c1d783f1
+# ╠═ed8f7f60-322d-47d0-9f90-45c8cfe4aff8
+# ╠═30653375-3bb0-4003-9028-9c0718366005
+# ╠═4ae861a1-c354-47ce-800f-aa8c96ab7a04
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
