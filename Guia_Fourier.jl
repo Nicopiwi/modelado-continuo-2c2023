@@ -158,7 +158,60 @@ transform_plot = ej14()
 plot(abs.(fftshift(fft([ej14_f.(0:0.01:2)...]))))
 
 # ╔═╡ 4ae861a1-c354-47ce-800f-aa8c96ab7a04
+md"""
+Clase 4
+"""
 
+# ╔═╡ 2dea371b-8de9-4484-a0c2-52b8fe1d314a
+signal1 = wavread("./Notas/nota1.wav")
+
+# ╔═╡ 17158013-d875-4361-95ac-d6359ceb7e0b
+function getSignals()
+	signals = []
+	for i in 1:6
+		(signal, freq) = wavread("./Notas/nota$(i).wav")
+		push!(signals, signal[:,1])
+	end
+
+	return signals
+end
+
+# ╔═╡ 2e1d973c-0d4e-4229-9c03-2f5890fde31b
+signals = getSignals()
+
+# ╔═╡ 3c1c9948-304c-4c80-b48b-e245813f071c
+shifted_k = fftshift(fftfreq(length(signals[1]))*length(signals[1]))
+
+# ╔═╡ 7a1e2a16-5dcb-4318-b7d8-4e5b08bfe78d
+# Amplitud en función a la frecuencias
+shifted_amplitud = fftshift(abs.(fft(signals[1])))
+
+# ╔═╡ 5943cd3e-a99d-4fc8-9d3d-5b228cb0f90c
+plot(shifted_k, shifted_amplitud, xlim=(-4e3, 4e3))
+
+# ╔═╡ 1cf6e9d7-245e-45d4-849a-05674f7e07b9
+# Se trata de un G#
+shifted_k[argmax(shifted_amplitud)]
+
+# ╔═╡ af2150e6-6806-4385-993f-fe5d58c10283
+wavplay(signals[1], 44.1e3)
+
+# ╔═╡ b21eb5ee-a80a-4707-96f3-70991837cc42
+function getFirstFundamentalNotes(m)
+	sorted_amplitud = sortperm(shifted_amplitud, rev=true)
+
+	return sorted_amplitud[1:m]
+end
+
+# ╔═╡ 776cf08b-642e-4b64-9091-cdd3d469e449
+getFirstFundamentalNotes(25)
+
+# ╔═╡ 0a138b06-3c0c-4ba3-af35-c322733cd583
+# G#5, D#7 y G#6
+shifted_k[[67286, 70536, 69720]]
+
+# ╔═╡ 669af1c6-b0f2-4ef6-9646-0ce16e6bdcf9
+wavplay([sin(2*pi*810.0*i/44100)+sin(2*pi*810.0*i/44100) for i in 1:5e5], 44.1e3)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1286,6 +1339,18 @@ version = "1.4.1+1"
 # ╠═bde43773-6985-4991-b5a4-9e93c1d783f1
 # ╠═ed8f7f60-322d-47d0-9f90-45c8cfe4aff8
 # ╠═30653375-3bb0-4003-9028-9c0718366005
-# ╠═4ae861a1-c354-47ce-800f-aa8c96ab7a04
+# ╟─4ae861a1-c354-47ce-800f-aa8c96ab7a04
+# ╠═2dea371b-8de9-4484-a0c2-52b8fe1d314a
+# ╠═17158013-d875-4361-95ac-d6359ceb7e0b
+# ╠═2e1d973c-0d4e-4229-9c03-2f5890fde31b
+# ╠═3c1c9948-304c-4c80-b48b-e245813f071c
+# ╠═7a1e2a16-5dcb-4318-b7d8-4e5b08bfe78d
+# ╠═5943cd3e-a99d-4fc8-9d3d-5b228cb0f90c
+# ╠═1cf6e9d7-245e-45d4-849a-05674f7e07b9
+# ╠═af2150e6-6806-4385-993f-fe5d58c10283
+# ╠═b21eb5ee-a80a-4707-96f3-70991837cc42
+# ╠═776cf08b-642e-4b64-9091-cdd3d469e449
+# ╠═0a138b06-3c0c-4ba3-af35-c322733cd583
+# ╠═669af1c6-b0f2-4ef6-9646-0ce16e6bdcf9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
