@@ -40,8 +40,8 @@ function Pooling(A)
          # corremos la ventana de izquierda a derecha primero y luego baja 4 lugares
          while  i+3<= height
              while  j+3<= width
-                 # la ventana es de 4x4 en este caso
-                 new_C[new_i,new_j] = Statistics.mean(C[i:i+3:,j:j+3]) 
+                 # la ventana es de 4x4 en este caso y ajustamos rango de valores
+                 new_C[new_i,new_j] = Statistics.mean(C[i:i+3:,j:j+3]) -128
                  j = j+4
                  new_j = new_j+1
              end
