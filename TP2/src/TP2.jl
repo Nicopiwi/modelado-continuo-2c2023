@@ -45,8 +45,8 @@ function Pooling(A)
                  j = j+4
                  new_j = new_j+1
              end
-             j = 0
-             new_j = 0
+             j = 1
+             new_j = 1
              i = i +4
              new_i = new_i+1
          end
