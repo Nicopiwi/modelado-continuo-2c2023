@@ -1,8 +1,8 @@
 ## Activar entorno
 
 ```
-using Pkg;
-Pkg.activate(".");
+using Pkg
+Pkg.activate(".")
 ```
 
 ## Instalar dependencias
