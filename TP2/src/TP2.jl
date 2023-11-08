@@ -35,8 +35,8 @@ function pooling(rgb_image)
     Recibe: rgb_image imagen en formato RGB de tamaño n x m
     Devuelve: 
     - Matriz Y del formato YCbCr de tamaño n x m, con valores entre -128 y 127
-    - Matriz Cb del formato YCbCr aplicando pooling 4x4 de tamaño n/2 x m/2, con valores entre -128 y 127
-    - Matriz Cr del formato YCbCr aplicando pooling 4x4 de tamaño n/2 x m/2, con valores entre -128 y 127
+    - Matriz Cb del formato YCbCr aplicando pooling 2x2 de tamaño n/2 x m/2, con valores entre -128 y 127
+    - Matriz Cr del formato YCbCr aplicando pooling 2x2 de tamaño n/2 x m/2, con valores entre -128 y 127
     """
     ycbcr_image = YCbCr.(rgb_image)
     channels = getImageChannels(ycbcr_image)
@@ -85,8 +85,8 @@ function inverse_pooling(Y, Cb, Cr)
     """
     Recibe: 
     - Matriz Y del formato YCbCr de tamaño n x m, con valores entre -128 y 127
-    - Matriz Cb del formato YCbCr con pooling 4x4 de tamaño n/2 x m/2, con valores entre -128 y 127
-    - Matriz Cr del formato YCbCr con pooling 4x4 de tamaño n/2 x m/2, con valores entre -128 y 127
+    - Matriz Cb del formato YCbCr con pooling 2x2 de tamaño n/2 x m/2, con valores entre -128 y 127
+    - Matriz Cr del formato YCbCr con pooling 2x2 de tamaño n/2 x m/2, con valores entre -128 y 127
     Devuelve: Imagen en formato RGB
     """
 
