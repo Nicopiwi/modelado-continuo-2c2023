@@ -81,7 +81,7 @@ function _reconstructMatrixForInversePooling(M::Matrix)
     return res
 end
 
-function inverse_pooling(Y, Cb, Cr)
+function inversePooling(Y, Cb, Cr)
     """
     Recibe: 
     - Matriz Y del formato YCbCr de tamaño n x m, con valores entre -128 y 127
@@ -103,7 +103,7 @@ function inverse_pooling(Y, Cb, Cr)
 end
 
 
-function apply_transform(M::Matrix)
+function applyTransform(M::Matrix)
 """
 Recibe:
     - M matriz de n x m con n, m múltiplos de 16.
@@ -120,7 +120,7 @@ Recibe:
 end
 
 
-function apply_inverse_transform(M::Matrix)
+function applyInverseTransform(M::Matrix)
     """
     Recibe:
         - M matriz de n x m con n, m múltiplos de 16.
@@ -136,7 +136,7 @@ function apply_inverse_transform(M::Matrix)
     
 end
 
-function apply_quantization(M::Matrix, quant::Matrix)
+function applyQuantization(M::Matrix, quant::Matrix)
     """
     Recibe:
         - M matriz de n x m con n, m múltiplos de 16.
@@ -147,12 +147,12 @@ function apply_quantization(M::Matrix, quant::Matrix)
 
     for i in 1:8:n
         for j in 1:8:m
-            round!.(view(M, i:i+7, j:j+7) ./ quant)
+            M[i:i+7, j:j+7] = round.(view(M, i:(i+7), j:(j+7)) ./ quant)
         end
     end
 end
 
-function apply_inverse_quantization(M::Matrix, quant::Matrix)
+function applyInverseQuantization(M::Matrix, quant::Matrix)
     """
     Recibe:
         - M matriz de n x m con n, m múltiplos de 16.
@@ -163,7 +163,7 @@ function apply_inverse_quantization(M::Matrix, quant::Matrix)
 
     for i in 1:8:n
         for j in 1:8:m
-            view(M, i:i+7, j:j+7) .* quant
+            view(M, i:i+7, j:j+7) .*= quant
         end
     end
 end
