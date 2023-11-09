@@ -163,3 +163,30 @@ function applyInverseQuantization(M::Matrix, quant::Matrix)
         end
     end
 end
+
+
+
+function zigzag(M::Matrix)
+    n, m = size(M)
+    vector = []
+    i, j = 1, 1
+    while i <= n && j <= m
+        push!(vector, M[i, j])
+        if (i + j) % 2 == 0
+            # nos movemos para arriba si la sumade indices es par
+            if i > 1
+                i -= 1
+            else
+                j += 1
+            end
+        else
+            # nos movemos para abajo si la sumade indices es impar
+            if j > 1
+                j -= 1
+            else
+                i += 1
+            end
+        end
+    end
+    return vector
+end
