@@ -207,6 +207,7 @@ function compresion(M::Matrix)
    return c      
 end
 
+
 function decompresion(c::Vector)
    # c es el vector comprimido de la matriz 
    # separamos a la comrpesion en los respresentates de cada matriz de 8x8
@@ -232,11 +233,11 @@ function decompresion(c::Vector)
       repeticion = []
       valor = []
 
-      for num in vect
+      for num in 1:length(vect)
           if num % 2 == 1
-              push!(repeticion, num)
+              push!(repeticion, vect[num])
           else
-              push!(valor, num)
+              push!(valor, vect[num])
           end
       end
       push!(submatriz,inverse_rle(repeticion,valor))
