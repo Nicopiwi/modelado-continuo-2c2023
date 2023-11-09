@@ -11,9 +11,10 @@ using Images
 using Statistics
 using Colors
 
-function prepareImage(path::String)
+function prepareImage(path::String)::Matrix{RGB{N0f8}}
     """
-    Preparamos la imagen con padding múltiplo 16
+    Preparamos la imagen con padding negro para que las dimensiones sean 
+    de tamaño múltiplo de 16.
     """
     input_image = load(path)
     height, width = size(input_image)
@@ -25,12 +26,7 @@ function prepareImage(path::String)
     return Matrix(paddedImage)
 end
 
-
-function getImageChannels(image)
-    return channelview(image)
-end
-
-function pooling(rgb_image)
+function pooling(rgb_image::Matrix{RGB{N0f8}})
     """
     Recibe: rgb_image imagen en formato RGB de tamaño n x m
     Devuelve: 
@@ -39,7 +35,7 @@ function pooling(rgb_image)
     - Matriz Cr del formato YCbCr aplicando pooling 2x2 de tamaño n/2 x m/2, con valores entre -128 y 127
     """
     ycbcr_image = YCbCr.(rgb_image)
-    channels = getImageChannels(ycbcr_image)
+    channels = channelview(ycbcr_image)
     Y = channels[1,:,:] .- 128
     res = []
 
