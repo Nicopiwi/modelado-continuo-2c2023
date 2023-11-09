@@ -167,30 +167,30 @@ end
 
 
 
-function zigzag(M::Matrix)
-    n, m = size(M)
-    vector = []
-    i, j = 1, 1
-    while i <= n && j <= m
-        push!(vector, M[i, j])
-        if (i + j) % 2 == 0
-            # nos movemos para arriba si la sumade indices es par
-            if i > 1
-                i -= 1
-            else
-                j += 1
-            end
-        else
-            # nos movemos para abajo si la sumade indices es impar
-            if j > 1
-                j -= 1
-            else
-                i += 1
-            end
-        end
-    end
-    return vector
-end
+# function zigzagMatt(M::Matrix) ## corregir
+#     n, m = size(M)
+#     vector = []
+#     i, j = 1, 1
+#     while i <= n && j <= m
+#         push!(vector, M[i, j])
+#         if (i + j) % 2 == 0
+#             # nos movemos para arriba si la sumade indices es par
+#             if i > 1
+#                 i -= 1
+#             else
+#                 j += 1
+#             end
+#         else
+#             # nos movemos para abajo si la sumade indices es impar
+#             if j > 1
+#                 j -= 1
+#             else
+#                 i += 1
+#             end
+#         end
+#     end
+#     return vector
+# end
 
 function compresion(M::Matrix)
    # c es el vector final de comrpesion
@@ -201,9 +201,10 @@ function compresion(M::Matrix)
          # para cada submatriz de 8x8 aplicamos zigzag
          vect = rle(zigzag(M[i:i+7, j:j+7]))
          # transformamos rle en el formato deseado
-         resultado = vcat([(vect[2])[k], (vect[1])[k]] for k in 1:length(vect))[:]
+         resultado = vcat([],[vect[2,k], vect[1,k]] for k in 1:length(vect))
          c = vcat(c, resultado)
-         
+       end
+    end
    return c      
 end
 
@@ -244,4 +245,46 @@ function decompresion(c::Vector)
       
    end
    # falta convertir submatriz en una matriz con las submatrices en el orden correcto
+end
+
+
+
+function zigzag(matrix::Array{T,2}) where T ## corregir la funcion anterior
+    n, m = size(matrix)
+    row, col = 1, 1
+    up = true
+    result = []
+    for i = 1:n*m
+        # Imprimir el valor actual
+        push!(result,matrix[row, col])
+
+        # Si estamos moviéndonos en dirección "hacia arriba" de la matriz
+        if up
+            if col == m || row == 1
+                up = false
+                if col == m
+                    row += 1
+                else
+                    col += 1
+                end
+            else
+                row -= 1
+                col += 1
+            end
+        else # Si estamos moviéndonos en dirección "hacia abajo"
+            if row == n || col == 1
+                up = true
+                if row == n
+                    col += 1
+                else
+                    row += 1
+                end
+            else
+                row += 1
+                col -= 1
+            end
+        end
+    end
+
+    return result
 end
