@@ -10,6 +10,7 @@ using FFTW
 using Images
 using Statistics
 using Colors
+using StatsBase
 
 function prepareImage(path::String)::Matrix{RGB{N0f8}}
     """
@@ -189,4 +190,57 @@ function zigzag(M::Matrix)
         end
     end
     return vector
+end
+
+function compresion(M::Matrix)
+   # c es el vector final de comrpesion
+   c = []
+   n, m = size(M)
+   for i in 1:8:n
+       for j in 1:8:m
+         # para cada submatriz de 8x8 aplicamos zigzag
+         vect = rle(zigzag(M[i:i+7, j:j+7]))
+         # transformamos rle en el formato deseado
+         resultado = vcat([(vect[2])[k], (vect[1])[k]] for k in 1:length(vect))[:]
+         c = vcat(c, resultado)
+         
+   return c      
+end
+
+function decompresion(c::Vector)
+   # c es el vector comprimido de la matriz 
+   # separamos a la comrpesion en los respresentates de cada matriz de 8x8
+   subvect = []
+   sum = 0
+   j = 1
+   # separamos en subvectores para cada sub matriz
+   for i in 1:length(c)
+   
+      if (i%2==1) && (sum+c[i]==8)
+         sum = 0
+         push!(subvect,c[j::i+1])
+         j = i+2
+      elseif i%2==1
+         sum = sum+c[i]
+      end   
+      
+   end
+   # hacemos la de compresion por cada subvector
+   submatriz = []
+   for vect in submatriz
+      # Separate odd and even numbers into two vectors
+      repeticion = []
+      valor = []
+
+      for num in vect
+          if num % 2 == 1
+              push!(repeticion, num)
+          else
+              push!(valor, num)
+          end
+      end
+      push!(submatriz,inverse_rle(repeticion,valor))
+      
+   end
+   # falta convertir submatriz en una matriz con las submatrices en el orden correcto
 end
