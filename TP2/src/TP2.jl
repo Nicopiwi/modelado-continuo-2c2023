@@ -219,7 +219,7 @@ function decompresion(c::Vector)
    
       if (i%2==1) && (sum+c[i]==8)
          sum = 0
-         push!(subvect,c[j::i+1])
+         push!(subvect,c[j:i+1])
          j = i+2
       elseif i%2==1
          sum = sum+c[i]
