@@ -192,64 +192,7 @@ end
 #     return vector
 # end
 
-function compresion(M::Matrix)
-   # c es el vector final de comrpesion
-   c = []
-   n, m = size(M)
-   for i in 1:8:n
-       for j in 1:8:m
-         # para cada submatriz de 8x8 aplicamos zigzag
-         vect = rle(zigzag(M[i:i+7, j:j+7]))
-         # transformamos rle en el formato deseado
-         resultado = vcat([],[vect[2,k], vect[1,k]] for k in 1:length(vect))
-         c = vcat(c, resultado)
-       end
-    end
-   return c      
-end
-
-
-function decompresion(c::Vector)
-   # c es el vector comprimido de la matriz 
-   # separamos a la comrpesion en los respresentates de cada matriz de 8x8
-   subvect = []
-   sum = 0
-   j = 1
-   # separamos en subvectores para cada sub matriz
-   for i in 1:length(c)
-   
-      if (i%2==1) && (sum+c[i]==8)
-         sum = 0
-         push!(subvect,c[j:i+1])
-         j = i+2
-      elseif i%2==1
-         sum = sum+c[i]
-      end   
-      
-   end
-   # hacemos la de compresion por cada subvector
-   submatriz = []
-   for vect in submatriz
-      # Separate odd and even numbers into two vectors
-      repeticion = []
-      valor = []
-
-      for num in 1:length(vect)
-          if num % 2 == 1
-              push!(repeticion, vect[num])
-          else
-              push!(valor, vect[num])
-          end
-      end
-      push!(submatriz,inverse_rle(repeticion,valor))
-      
-   end
-   # falta convertir submatriz en una matriz con las submatrices en el orden correcto
-end
-
-
-
-function zigzag(matrix::Array{T,2}) where T ## corregir la funcion anterior
+function _zigzag(matrix::Matrix) ## corregir la funcion anterior
     n, m = size(matrix)
     row, col = 1, 1
     up = true
@@ -287,4 +230,65 @@ function zigzag(matrix::Array{T,2}) where T ## corregir la funcion anterior
     end
 
     return result
+end
+
+
+function compresion(M::Matrix)
+   # c es el vector final de comrpesion
+   c = []
+   n, m = size(M)
+   for i in 1:8:n
+       for j in 1:8:m
+         # para cada submatriz de 8x8 aplicamos zigzag
+         vals, reps = rle(_zigzag(M[i:i+7, j:j+7]))
+         for k in 1:length(vals)
+            push!(c, reps[k])
+            push!(c, vals[k])
+         end
+       end
+    end
+   return c      
+end
+
+
+function decompresion(c::Vector, n, m)
+   # c es el vector comprimido de la matriz 
+   # Separamos a la comrpesion en los respresentates de cada matriz de 8x8
+   subvect = []
+   sum = 0
+   j = 1
+   # separamos en subvectores para cada sub matriz
+   for i in 1:length(c)
+      esRep = (i%2==1)
+      seDebeCortar = (sum+c[i]==64)
+      if esRep && seDebeCortar
+         sum = 0
+         push!(subvect,c[j:i+1])
+         j = i+2
+      elseif esRep
+         sum = sum + c[i]
+      end   
+      
+   end
+   # hacemos la de compresion por cada subvector
+   submatrices = []
+   for vect in subvect
+      repeticion = []
+      valor = []
+
+      for num in 1:length(vect)
+          esRep = num % 2 == 1
+          if esRep
+              push!(repeticion, vect[num])
+          else
+              push!(valor, vect[num])
+          end
+      end
+      push!(submatrices, reshape(inverse_rle(repeticion,valor), 8, 8))
+      
+    end
+
+    #TODO: Retornar matriz original
+
+    return
 end
