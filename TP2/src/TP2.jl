@@ -284,11 +284,19 @@ function decompresion(c::Vector, n, m)
               push!(valor, vect[num])
           end
       end
-      push!(submatrices, reshape(inverse_rle(repeticion,valor), 8, 8))
+      push!(submatrices, reshape(inverse_rle(repeticion,valor), (8, 8))
       
     end
+    l = 1
+    M = zeros((n,m))
+    for i in 1:8:n
+       for j in 1:8:m
+         M[i:i+7, j:j+7] = submatrices[l]
+         l = l+1
+       end
+    end     
+    
+    
 
-    #TODO: Retornar matriz original
-
-    return
+    return M
 end
