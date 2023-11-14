@@ -300,3 +300,42 @@ function decompresion(c::Vector, n, m)
 
     return M
 end
+
+# Parte Guardado
+
+function guardado(n::UInt16,m::UInt16, M::Matrix{UInt8},c::Vector)
+    io = open("imagen.imc","a")
+    write(io,n)
+    write(io,m)
+    filas,columnas = size(M)
+    for i in 1:filas 
+        for j in 1:columnas
+            write(io,M[i,j])
+        end   
+    end
+    for i in 1:length(c)
+        write(io,c[i])
+    end
+    close(io)
+end
+
+function lectura(ruta::String)
+     io = open(ruta, "r")
+
+     # Leer los dos primeros UInt16
+     n = read(io, UInt16)
+     m = read(io, UInt16)
+ 
+     # Leer la matriz de UInt8 de tamaño n x m
+     M = [read(io, UInt8) for _ in 1:n, _ in 1:m]
+ 
+     # Leer el resto del archivo como Int8 en un vector
+     c = Int8[]
+     while !eof(io)
+         push!(c, read(io, Int8))
+     end
+ 
+     close(io)
+ 
+     return n, m, M, c
+ end
