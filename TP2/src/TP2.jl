@@ -9,7 +9,7 @@ Imports
 using FFTW
 using Images
 using Statistics
-using Colors
+using .Colors
 using StatsBase
 
 function prepareImage(path::String)::Matrix{RGB{N0f8}}
@@ -166,33 +166,7 @@ function applyInverseQuantization(M::Matrix, quant::Matrix)
 end
 
 
-
-# function zigzagMatt(M::Matrix) ## corregir
-#     n, m = size(M)
-#     vector = []
-#     i, j = 1, 1
-#     while i <= n && j <= m
-#         push!(vector, M[i, j])
-#         if (i + j) % 2 == 0
-#             # nos movemos para arriba si la sumade indices es par
-#             if i > 1
-#                 i -= 1
-#             else
-#                 j += 1
-#             end
-#         else
-#             # nos movemos para abajo si la sumade indices es impar
-#             if j > 1
-#                 j -= 1
-#             else
-#                 i += 1
-#             end
-#         end
-#     end
-#     return vector
-# end
-
-function _zigzag(matrix::Matrix) ## corregir la funcion anterior
+function _zigzag(matrix::Matrix)
     n, m = size(matrix)
     row, col = 1, 1
     up = true
@@ -259,7 +233,7 @@ function decompresion(c::Vector, n, m)
    j = 1
    # separamos en subvectores para cada sub matriz
    for i in 1:length(c)
-      esRep = (i%2==1)
+      esRep = (i % 2 == 1)
       seDebeCortar = (sum+c[i]==64)
       if esRep && seDebeCortar
          sum = 0
@@ -270,11 +244,11 @@ function decompresion(c::Vector, n, m)
       end   
       
    end
-   # hacemos la de compresion por cada subvector
+   # Hacemos la de compresión por cada subvector
    submatrices = []
    for vect in subvect
-      repeticion = []
-      valor = []
+      repeticion::Vector{Integer} = []
+      valor::Vector{Integer} = []
 
       for num in 1:length(vect)
           esRep = num % 2 == 1
@@ -284,9 +258,11 @@ function decompresion(c::Vector, n, m)
               push!(valor, vect[num])
           end
       end
-      push!(submatrices, reshape(inverse_rle(repeticion,valor), (8, 8))
+      push!(submatrices, reshape(inverse_rle(valor, repeticion), (8, 8)))
       
     end
+    print("HOLAA", size(submatrices))
+
     l = 1
     M = zeros((n,m))
     for i in 1:8:n
@@ -295,27 +271,43 @@ function decompresion(c::Vector, n, m)
          l = l+1
        end
     end     
-    
-    
 
     return M
 end
 
 # Parte Guardado
 
-function guardado(n::UInt16,m::UInt16, M::Matrix{UInt8},c::Vector)
-    io = open("imagen.imc","a")
+function guardado(
+    n::UInt16,
+    m::UInt16, 
+    quant::Matrix{UInt8},
+    compressedY::Vector{Int8},
+    compressedCb::Vector{Int8},
+    compressedCr::Vector{Int8},
+    fileName::String
+)
+    io = open("$fileName.imc","a")
     write(io,n)
     write(io,m)
-    filas,columnas = size(M)
-    for i in 1:filas 
-        for j in 1:columnas
-            write(io,M[i,j])
+
+    for i in 1:8 
+        for j in 1:8
+            write(io, quant[i,j])
         end   
     end
-    for i in 1:length(c)
-        write(io,c[i])
+
+    for i in 1:length(compressedY)
+        write(io, compressedY[i])
     end
+
+    for i in 1:length(compressedCb)
+        write(io, compressedCb[i])
+    end
+
+    for i in 1:length(compressedCr)
+        write(io, compressedCr[i])
+    end
+
     close(io)
 end
 
@@ -327,15 +319,26 @@ function lectura(ruta::String)
      m = read(io, UInt16)
  
      # Leer la matriz de UInt8 de tamaño n x m
-     M = [read(io, UInt8) for _ in 1:n, _ in 1:m]
+     quant = transpose([read(io, UInt8) for _ in 1:8, _ in 1:8])
  
      # Leer el resto del archivo como Int8 en un vector
-     c = Int8[]
-     while !eof(io)
-         push!(c, read(io, Int8))
+     compressedY = Int8[]
+     compressedCb = Int8[]
+     compressedCr = Int8[]
+
+     for i in 1:n*m
+        push!(compressedY, read(io, Int8))
+     end
+
+     for i in 1:(n/2)*(m/2)
+        push!(compressedCb, read(io, Int8))
+     end
+
+     for i in 1:(n/2)*(m/2)
+        push!(compressedCr, read(io, Int8))
      end
  
      close(io)
  
-     return n, m, M, c
+     return n, m, quant, compressedY, compressedCb, compressedCr
  end
