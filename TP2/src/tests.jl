@@ -10,6 +10,9 @@ using Pkg
 # ╔═╡ 964b8886-17d3-432a-a331-3fe65fa2776c
 Pkg.activate(".")
 
+# ╔═╡ 4f928c81-08b3-48ec-86c9-b859e00573d1
+using StatsBase
+
 # ╔═╡ e58b21d0-8667-11ee-3880-09e837427615
 include("./TP2.jl")
 
@@ -68,6 +71,24 @@ begin
 	iCr = decompresion(iCompressedCr, n/2, m/2)
 end
 
+# ╔═╡ 09641244-5fe1-4734-84af-5f3d4e4c7da5
+decompresion([4,7,59,90,1,5,62,0,2,7], 16, 8)
+
+# ╔═╡ 92b80202-9d97-496e-8be6-c0316d35049d
+my_zigzag = [1, 2, 4, 7, 5, 3, 4, 6, 8, 9, 6, 5, 6, 6, 9, 8, 6, 7]
+
+# ╔═╡ 4cb6a06c-9649-457d-9848-b6b216ad9213
+rle(my_zigzag)
+
+# ╔═╡ 76f0c07b-7437-4de7-b09c-d28683ba4d18
+comp = compresion([1 2 3 4 5 6; 4 5 6 6 6 6; 7 8 9 9 8 7])
+
+# ╔═╡ 9e03cf7b-f4bb-4c24-83bb-7faec0798eab
+decompresion(comp, 3, 6)
+
+# ╔═╡ 18aace49-381c-4677-8204-92abde4def12
+_zigzagNext(1, 3, true, 3)
+
 # ╔═╡ Cell order:
 # ╠═6bd790a4-73bf-454c-997b-5f37aeb3a0d3
 # ╠═964b8886-17d3-432a-a331-3fe65fa2776c
@@ -82,3 +103,10 @@ end
 # ╠═02dc6c07-22f6-4ce7-9115-9e6e3a8d0e73
 # ╠═415a8268-80a4-4e87-8a04-d6f663c0c741
 # ╠═ea5312ff-1f14-4da9-bacd-ad8c87de33e9
+# ╠═09641244-5fe1-4734-84af-5f3d4e4c7da5
+# ╠═92b80202-9d97-496e-8be6-c0316d35049d
+# ╠═4f928c81-08b3-48ec-86c9-b859e00573d1
+# ╠═4cb6a06c-9649-457d-9848-b6b216ad9213
+# ╠═76f0c07b-7437-4de7-b09c-d28683ba4d18
+# ╠═9e03cf7b-f4bb-4c24-83bb-7faec0798eab
+# ╠═18aace49-381c-4677-8204-92abde4def12

@@ -271,7 +271,7 @@ function decompresion(c::Vector, n, m)
       if esRepeticiones && seDebeCortar
          sum = 0
          push!(subvect, c[j:i+1])
-         j = i+2
+         j = i + 2
       elseif esRepeticiones
          sum = sum + c[i]
       end   
