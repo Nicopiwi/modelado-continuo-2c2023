@@ -16,7 +16,7 @@ Pkg.instantiate()
 ## Correr funciones específicas
 
 ```
-include("./src/TP2")
+include("./src/TP2.jl")
 functionName(...)
 ```
 

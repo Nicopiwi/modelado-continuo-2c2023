@@ -317,12 +317,10 @@ function guardado(
     n::UInt16,
     m::UInt16, 
     quant::Matrix{UInt8},
-    compressedY::Vector{Int8},
-    compressedCb::Vector{Int8},
-    compressedCr::Vector{Int8},
-    fileName::String
+    vectoresComprimidos::Vector{Vector{Int8}},
+    ruta::String
 )
-    io = open("$fileName.imc","a")
+    io = open("$ruta.imc","a")
     write(io,n)
     write(io,m)
 
@@ -332,79 +330,44 @@ function guardado(
         end   
     end
 
-    for i in 1:length(compressedY)
-        write(io, compressedY[i])
-    end
-
-    write(io, "|")
-
-    for i in 1:length(compressedCb)
-        write(io, compressedCb[i])
-    end
-
-    write(io, "|")
-
-    for i in 1:length(compressedCr)
-        write(io, compressedCr[i])
+    # Convierto los elementos de los vectores a string para facilitar luego la lectura    
+    for vector in vectoresComprimidos
+        cadena_vector = join(string.(vector), " ")
+        write(io, cadena_vector)
+        write(io, "|")
     end
 
     close(io)
 end
 
 function lectura(ruta::String)
-     io = open(ruta, "r")
 
-     # Leer los dos primeros UInt16
-     n = read(io, UInt16)
-     m = read(io, UInt16)
+    io = open("$ruta.imc","r")
+
+    # Leer los dos primeros UInt16
+    n = read(io, UInt16)
+    m = read(io, UInt16)
  
-     # Leer la matriz de UInt8 de tamaño n x m
-     quant = transpose([read(io, UInt8) for _ in 1:8, _ in 1:8])
- 
-     # Leer el resto del archivo como Int8 en un vector
-     compressedY = Int8[]
-     compressedCb = Int8[]
-     compressedCr = Int8[]
+    # Leer la matriz de UInt8 de tamaño n x m
+    quant = transpose([read(io, UInt8) for _ in 1:8, _ in 1:8])
 
-    #  Y_read = false
-    #  Cb_read = false
-
-    #  while !eof(io)
-    #     val = read(io, String)
-
-    #     Y 
-    #  end
-
-    #  for i in 1:n*m
-    #     push!(compressedY, read(io, Int8))
-    #  end
-
-    #  for i in 1:(n/2)*(m/2)
-    #     push!(compressedCb, read(io, Int8))
-    #  end
-
-    #  for i in 1:(n/2)*(m/2)
-    #     push!(compressedCr, read(io, Int8))
-    #  end
-
-    contenido = read(io, String)
+    # Leer el resto del archivo como String
+    contenido_restante = read(io, String)
     close(io)
 
+    # Dividir el contenido en vectores usando "|" como delimitador
+    partes = split(contenido_restante, "|")
 
+    # Convertir cada parte en un vector de Int8
     vectores = []
-
-    vectores_crudos = split(contenido, "|")
-
-    # Convertir cada vector crudo en un vector de UInt8
-    for vector_crudo in vectores_crudos
-        print(vector_crudo)
-        if !isempty(vector_crudo)
-            vector = [parse(UInt8, elemento) for elemento in split(vector_crudo)]
+    for parte in partes
+        if !isempty(parte)
+            vector = [parse(Int8, strip(elemento)) for elemento in split(parte)]
             push!(vectores, vector)
         end
     end
 
-     compressedY, compressedCb, compressedCr = vectores
- 
-     return n, m, quant, compressedY, compressedCb, compressedCr
+    compressedY, compressedCb, compressedCr = vectores
+
+    return n, m, quant, compressedY, compressedCb, compressedCr
  end
