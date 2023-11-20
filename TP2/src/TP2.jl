@@ -165,45 +165,77 @@ function applyInverseQuantization(M::Matrix, quant::Matrix)
     end
 end
 
+function _zigzagNext(currentRow, currentCol, currentUp, n)
+    row = currentRow
+    col = currentCol
+    up = currentUp
 
-function _zigzag(matrix::Matrix)
-    n, m = size(matrix)
-    row, col = 1, 1
-    up = true
-    result = []
-    for i = 1:n*m
-        # Imprimir el valor actual
-        push!(result,matrix[row, col])
-
-        # Si estamos moviéndonos en dirección "hacia arriba" de la matriz
-        if up
-            if col == m || row == 1
-                up = false
-                if col == m
-                    row += 1
-                else
-                    col += 1
-                end
+    # Si estamos moviéndonos en dirección "hacia arriba" de la matriz
+    if up
+        if col == n || row == 1
+            up = false
+            if col == n
+                row += 1
             else
-                row -= 1
                 col += 1
             end
-        else # Si estamos moviéndonos en dirección "hacia abajo"
-            if row == n || col == 1
-                up = true
-                if row == n
-                    col += 1
-                else
-                    row += 1
-                end
+        else
+            row -= 1
+            col += 1
+        end
+    else # Si estamos moviéndonos en dirección "hacia abajo"
+        if row == n || col == 1
+            up = true
+            if row == n
+                col += 1
             else
                 row += 1
-                col -= 1
             end
+        else
+            row += 1
+            col -= 1
         end
     end
 
+    return row, col, up
+
+end
+
+
+function _zigzag(matrix::Matrix)
+    """
+    Recibe matriz M cuadrada, y retorna los valores de la matriz leídos en zigzag.
+    """
+    
+    n, _ = size(matrix)
+    row, col = 1, 1
+    up = true
+    result = []
+    for i = 1:n*n
+        push!(result, matrix[row, col])
+
+        row, col, up = _zigzagNext(row, col, up, n)
+    end
+
     return result
+end
+
+function _reconstruirMatrizDesdeZigzag(vect, n)
+    """
+    Recibe matriz vector unidimensional de tamaño n^2, y retorna una matriz
+    de n x n con los valores leidos en zigzag.
+    """
+    
+    row, col = 1, 1
+    up = true
+    M = zeros(n, n)
+    for valor in vect
+        M[row, col] = valor
+
+        row, col, up = _zigzagNext(row, col, up, n)
+    end
+
+    return M
 end
 
 
@@ -213,7 +245,7 @@ function compresion(M::Matrix)
    n, m = size(M)
    for i in 1:8:n
        for j in 1:8:m
-         # para cada submatriz de 8x8 aplicamos zigzag
+         # Para cada submatriz de 8x8 aplicamos zigzag
          vals, reps = rle(_zigzag(M[i:i+7, j:j+7]))
          for k in 1:length(vals)
             push!(c, reps[k])
@@ -227,24 +259,27 @@ end
 
 function decompresion(c::Vector, n, m)
    # c es el vector comprimido de la matriz 
-   # Separamos a la comrpesion en los respresentates de cada matriz de 8x8
+   # Separamos a la comrpesión en los respresentates de cada matriz de 8x8
    subvect = []
    sum = 0
    j = 1
-   # separamos en subvectores para cada sub matriz
+
+   # Separamos en subvectores para cada submatriz de 8x8
    for i in 1:length(c)
-      esRep = (i % 2 == 1)
-      seDebeCortar = (sum+c[i]==64)
-      if esRep && seDebeCortar
+      esRepeticiones = (i % 2 == 1)
+      seDebeCortar = (sum + c[i] == 64)
+      if esRepeticiones && seDebeCortar
          sum = 0
-         push!(subvect,c[j:i+1])
+         push!(subvect, c[j:i+1])
          j = i+2
-      elseif esRep
+      elseif esRepeticiones
          sum = sum + c[i]
       end   
       
    end
-   # Hacemos la de compresión por cada subvector
+
+   print("SUBVECT", subvect)
+   
    submatrices = []
    for vect in subvect
       repeticion::Vector{Integer} = []
@@ -258,9 +293,10 @@ function decompresion(c::Vector, n, m)
               push!(valor, vect[num])
           end
       end
-      push!(submatrices, reshape(inverse_rle(valor, repeticion), (8, 8)))
-      
+      inverted_rle = inverse_rle(valor, repeticion)
+      push!(submatrices, _reconstruirMatrizDesdeZigzag(inverted_rle, 8))
     end
+    print("HOLAA", size(subvect))
     print("HOLAA", size(submatrices))
 
     l = 1
@@ -300,9 +336,13 @@ function guardado(
         write(io, compressedY[i])
     end
 
+    write(io, "|")
+
     for i in 1:length(compressedCb)
         write(io, compressedCb[i])
     end
+
+    write(io, "|")
 
     for i in 1:length(compressedCr)
         write(io, compressedCr[i])
@@ -326,19 +366,45 @@ function lectura(ruta::String)
      compressedCb = Int8[]
      compressedCr = Int8[]
 
-     for i in 1:n*m
-        push!(compressedY, read(io, Int8))
-     end
+    #  Y_read = false
+    #  Cb_read = false
 
-     for i in 1:(n/2)*(m/2)
-        push!(compressedCb, read(io, Int8))
-     end
+    #  while !eof(io)
+    #     val = read(io, String)
 
-     for i in 1:(n/2)*(m/2)
-        push!(compressedCr, read(io, Int8))
-     end
- 
-     close(io)
+    #     Y 
+    #  end
+
+    #  for i in 1:n*m
+    #     push!(compressedY, read(io, Int8))
+    #  end
+
+    #  for i in 1:(n/2)*(m/2)
+    #     push!(compressedCb, read(io, Int8))
+    #  end
+
+    #  for i in 1:(n/2)*(m/2)
+    #     push!(compressedCr, read(io, Int8))
+    #  end
+
+    contenido = read(io, String)
+    close(io)
+
+
+    vectores = []
+
+    vectores_crudos = split(contenido, "|")
+
+    # Convertir cada vector crudo en un vector de UInt8
+    for vector_crudo in vectores_crudos
+        print(vector_crudo)
+        if !isempty(vector_crudo)
+            vector = [parse(UInt8, elemento) for elemento in split(vector_crudo)]
+            push!(vectores, vector)
+        end
+    end
+
+     compressedY, compressedCb, compressedCr = vectores
  
      return n, m, quant, compressedY, compressedCb, compressedCr
  end
