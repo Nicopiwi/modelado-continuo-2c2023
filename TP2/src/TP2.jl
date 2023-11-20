@@ -158,11 +158,14 @@ function applyInverseQuantization(M::Matrix, quant::Matrix)
     """
     n, m = size(M)
 
-    for i in 1:8:n
-        for j in 1:8:m
-            view(M, i:i+7, j:j+7) .*= quant
+    convertedM = zeros(n,m)
+
+    for i in 1:8:n-1
+        for j in 1:8:m-1
+            convertedM[i:i+7,j:j+7] = view(M, i:i+7, j:j+7) .* quant
         end
     end
+    return convertedM
 end
 
 function _zigzagNext(currentRow, currentCol, currentUp, n)
@@ -257,7 +260,7 @@ function compresion(M::Matrix)
 end
 
 
-function decompresion(c::Vector, n, m)
+function decompresion(c::Vector, n::UInt16, m::UInt16)
    # c es el vector comprimido de la matriz 
    # Separamos a la comrpesión en los respresentates de cada matriz de 8x8
    subvect = []
@@ -300,9 +303,9 @@ function decompresion(c::Vector, n, m)
     print("HOLAA", size(submatrices))
 
     l = 1
-    M = zeros((n,m))
-    for i in 1:8:n
-       for j in 1:8:m
+    M = zeros(Int8,n,m)
+    for i in 1:8:n-1
+       for j in 1:8:m-1
          M[i:i+7, j:j+7] = submatrices[l]
          l = l+1
        end

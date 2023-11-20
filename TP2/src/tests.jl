@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.27
+# v0.19.29
 
 using Markdown
 using InteractiveUtils
@@ -8,7 +8,12 @@ using InteractiveUtils
 using Pkg
 
 # ╔═╡ 964b8886-17d3-432a-a331-3fe65fa2776c
+# ╠═╡ show_logs = false
+begin
 Pkg.activate(".")
+Pkg.instantiate()
+Pkg.add("Images")
+end
 
 # ╔═╡ 4f928c81-08b3-48ec-86c9-b859e00573d1
 using StatsBase
@@ -17,7 +22,7 @@ using StatsBase
 include("./TP2.jl")
 
 # ╔═╡ 05a9e969-be46-499f-9506-223c4c867310
-img = prepareImage("../images/bolitas.bmp")
+img = prepareImage("../images/chica.jpg")
 
 # ╔═╡ 3ab142f6-8a6d-4cdf-814d-c0adb6971a4a
 Y, Cb, Cr = pooling(img)
@@ -56,38 +61,61 @@ end
 # ╔═╡ 7f3094af-d9dc-463b-8b1a-4f1d15c564a6
 begin
 	n, m = size(Y)
+	n = UInt16(n)
+	m = UInt16(m)
 end
 
 # ╔═╡ 02dc6c07-22f6-4ce7-9115-9e6e3a8d0e73
-guardado(UInt16(n), UInt16(m), quant, Vector{Int8}(compressedY), Vector{Int8}(compressedCb), Vector{Int8}(compressedCr), "pruebaBolitas")
+guardado(UInt16(n), UInt16(m), quant,[Vector{Int8}(compressedY),Vector{Int8}(compressedCb), Vector{Int8}(compressedCr)], "pruebaBolitas")
 
 # ╔═╡ 415a8268-80a4-4e87-8a04-d6f663c0c741
-_, _, _, iCompressedY, iCompressedCb, iCompressedCr = lectura("pruebaBolitas.imc")
+begin
+_, _, _, iCompressedY, iCompressedCb, iCompressedCr = lectura("pruebaBolitas")
+iCompressedY == compressedY
+end
+
 
 # ╔═╡ ea5312ff-1f14-4da9-bacd-ad8c87de33e9
 begin
 	iY = decompresion(iCompressedY, n, m)
-	iCb = decompresion(iCompressedCb, n/2, m/2)
-	iCr = decompresion(iCompressedCr, n/2, m/2)
+	iCb = decompresion(iCompressedCb, UInt16(n ÷ 2),UInt16( m ÷ 2))
+	iCr = decompresion(iCompressedCr, UInt16(n ÷ 2),UInt16( m ÷ 2))
 end
 
 # ╔═╡ 09641244-5fe1-4734-84af-5f3d4e4c7da5
-decompresion([4,7,59,90,1,5,62,0,2,7], 16, 8)
+# decompresion([4,7,59,90,1,5,62,0,2,7], 16, 8)
 
 # ╔═╡ 92b80202-9d97-496e-8be6-c0316d35049d
-my_zigzag = [1, 2, 4, 7, 5, 3, 4, 6, 8, 9, 6, 5, 6, 6, 9, 8, 6, 7]
+# my_zigzag = [1, 2, 4, 7, 5, 3, 4, 6, 8, 9, 6, 5, 6, 6, 9, 8, 6, 7]
 
 # ╔═╡ 4cb6a06c-9649-457d-9848-b6b216ad9213
-rle(my_zigzag)
+# rle(my_zigzag)
 
 # ╔═╡ 76f0c07b-7437-4de7-b09c-d28683ba4d18
-comp = compresion([1 2 3 4 5 6; 4 5 6 6 6 6; 7 8 9 9 8 7])
+# comp = compresion([1 2 3 4 5 6; 4 5 6 6 6 6; 7 8 9 9 8 7])
 
 # ╔═╡ 9e03cf7b-f4bb-4c24-83bb-7faec0798eab
-decompresion(comp, 3, 6)
+# decompresion(comp, 3, 6)
 
 # ╔═╡ 18aace49-381c-4677-8204-92abde4def12
-_zigzagNext(1, 3, true, 3)
+# _zigzagNext(1, 3, true, 3)
+
+# ╔═╡ 158a1020-d42e-4d55-becb-7100fe582dd5
+begin
+	test1 = applyInverseQuantization(iY,quant)
+	test2 = applyInverseQuantization(Matrix{Int16}(iCb),quant)
+	test3 = applyInverseQuantization(Matrix{Int16}(iCr),quant)
+end
+
+# ╔═╡ 607d929f-9fcf-4700-a0ec-eacf97e293a2
+begin 
+	applyInverseTransform(test1)
+	applyInverseTransform(test2)
+	applyInverseTransform(test3)
+end
+
+# ╔═╡ 0030a043-f88a-44ea-9985-bb1e9ed249c5
+inversePooling(test1,test2,test3)
 
 # ╔═╡ Cell order:
 # ╠═6bd790a4-73bf-454c-997b-5f37aeb3a0d3
@@ -110,3 +138,6 @@ _zigzagNext(1, 3, true, 3)
 # ╠═76f0c07b-7437-4de7-b09c-d28683ba4d18
 # ╠═9e03cf7b-f4bb-4c24-83bb-7faec0798eab
 # ╠═18aace49-381c-4677-8204-92abde4def12
+# ╠═158a1020-d42e-4d55-becb-7100fe582dd5
+# ╠═607d929f-9fcf-4700-a0ec-eacf97e293a2
+# ╠═0030a043-f88a-44ea-9985-bb1e9ed249c5
