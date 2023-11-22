@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.29
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -51,11 +51,31 @@ begin
 	applyQuantization(Cr, quant)
 end
 
-# ╔═╡ 5bb523cd-82f4-419e-b77a-389e5cd0e72d
+# ╔═╡ 70e70e3c-978c-4e75-b1b9-94cea1642116
+typeof(Y)
+
+# ╔═╡ 46df00ec-4c1b-49d3-bfd2-67fcc2477d89
 begin
-	compressedY = compresion(Y)
-	compressedCb = compresion(Cb)
-	compressedCr = compresion(Cr)
+mtest = [
+1 2 3 3 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 4 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 9 6 7 8;
+1 1 1 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 3 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 4 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 9 6 7 8;
+1 1 1 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 9 4 5 6 7 8 1 2 3 4 5 6 7 8;
+1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8;
+]
+
+decompresion(compresion(mtest), UInt16(16), UInt16(16))
 end
 
 # ╔═╡ 7f3094af-d9dc-463b-8b1a-4f1d15c564a6
@@ -63,7 +83,34 @@ begin
 	n, m = size(Y)
 	n = UInt16(n)
 	m = UInt16(m)
+	compressedY = compresion(Y)
+	compressedCb = compresion(Cb)
+	compressedCr = compresion(Cr)
 end
+
+# ╔═╡ 5bb523cd-82f4-419e-b77a-389e5cd0e72d
+begin
+	invY = Matrix{Float32}(decompresion(compresion(Y), n, m))
+	invCb = Matrix{Float32}(decompresion(compresion(Cb), UInt16(n ÷ 2), UInt16(m ÷ 2)))
+	invCr = Matrix{Float32}(decompresion(compresion(Cr), UInt16(n ÷ 2), UInt16(m ÷ 2)))
+end
+
+# ╔═╡ 375451d4-0c22-4a87-94a3-580cabe03e28
+begin
+	invY2 = applyInverseQuantization(invY, quant)
+	invCb2 = applyInverseQuantization(invCb, quant)
+	invCr2 = applyInverseQuantization(invCr, quant)
+end
+
+# ╔═╡ 20b22202-7196-48c9-ab21-fa15a6d20c14
+begin 
+	applyInverseTransform(invY2)
+	applyInverseTransform(invCb2)
+	applyInverseTransform(invCr2)
+end
+
+# ╔═╡ 63d7dc65-f236-4c17-9585-ec404e20a51d
+inversePooling(invY2, invCb2, invCr2)
 
 # ╔═╡ 02dc6c07-22f6-4ce7-9115-9e6e3a8d0e73
 guardado(UInt16(n), UInt16(m), quant,[Vector{Int8}(compressedY),Vector{Int8}(compressedCb), Vector{Int8}(compressedCr)], "pruebaBolitas")
@@ -71,15 +118,17 @@ guardado(UInt16(n), UInt16(m), quant,[Vector{Int8}(compressedY),Vector{Int8}(com
 # ╔═╡ 415a8268-80a4-4e87-8a04-d6f663c0c741
 begin
 _, _, _, iCompressedY, iCompressedCb, iCompressedCr = lectura("pruebaBolitas")
-iCompressedY == compressedY
 end
 
+
+# ╔═╡ fd852c3e-fb4e-4fbf-beea-9fe4c3e991db
+iCompressedY
 
 # ╔═╡ ea5312ff-1f14-4da9-bacd-ad8c87de33e9
 begin
 	iY = decompresion(iCompressedY, n, m)
-	iCb = decompresion(iCompressedCb, UInt16(n ÷ 2),UInt16( m ÷ 2))
-	iCr = decompresion(iCompressedCr, UInt16(n ÷ 2),UInt16( m ÷ 2))
+	iCb = decompresion(iCompressedCb, UInt16(n ÷ 2), UInt16(m ÷ 2))
+	iCr = decompresion(iCompressedCr, UInt16(n ÷ 2), UInt16(m ÷ 2))
 end
 
 # ╔═╡ 09641244-5fe1-4734-84af-5f3d4e4c7da5
@@ -127,9 +176,15 @@ inversePooling(test1,test2,test3)
 # ╠═bb4b7749-ba52-4e8e-8f7f-186aa750f552
 # ╠═87686890-72bd-447d-86cf-82bb030b0394
 # ╠═5bb523cd-82f4-419e-b77a-389e5cd0e72d
+# ╠═70e70e3c-978c-4e75-b1b9-94cea1642116
+# ╠═46df00ec-4c1b-49d3-bfd2-67fcc2477d89
+# ╠═375451d4-0c22-4a87-94a3-580cabe03e28
+# ╠═20b22202-7196-48c9-ab21-fa15a6d20c14
+# ╠═63d7dc65-f236-4c17-9585-ec404e20a51d
 # ╠═7f3094af-d9dc-463b-8b1a-4f1d15c564a6
 # ╠═02dc6c07-22f6-4ce7-9115-9e6e3a8d0e73
 # ╠═415a8268-80a4-4e87-8a04-d6f663c0c741
+# ╠═fd852c3e-fb4e-4fbf-beea-9fe4c3e991db
 # ╠═ea5312ff-1f14-4da9-bacd-ad8c87de33e9
 # ╠═09641244-5fe1-4734-84af-5f3d4e4c7da5
 # ╠═92b80202-9d97-496e-8be6-c0316d35049d

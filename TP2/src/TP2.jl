@@ -14,7 +14,8 @@ using StatsBase
 
 function prepareImage(path::String)::Matrix{RGB{N0f8}}
     """
-    Preparamos la imagen con padding negro para que las dimensiones sean 
+    Recibe: ruta del archivo
+    Devuelve: Imagen con padding negro para que las dimensiones sean 
     de tamaño múltiplo de 16.
     """
     input_image = load(path)
@@ -108,8 +109,8 @@ Recibe:
 """
     n, m = size(M)
 
-    for i in 1:8:n
-        for j in 1:8:m
+    for i in 1:8:n-1
+        for j in 1:8:m-1
             dct!(view(M, i:i+7, j:j+7))
         end
     end
@@ -125,8 +126,8 @@ function applyInverseTransform(M::Matrix)
     """
     n, m = size(M)
 
-    for i in 1:8:n
-        for j in 1:8:m
+    for i in 1:8:n-1
+        for j in 1:8:m-1
             idct!(view(M, i:i+7, j:j+7))
         end
     end
@@ -142,8 +143,8 @@ function applyQuantization(M::Matrix, quant::Matrix)
     """
     n, m = size(M)
 
-    for i in 1:8:n
-        for j in 1:8:m
+    for i in 1:8:n-1
+        for j in 1:8:m-1
             M[i:i+7, j:j+7] = round.(view(M, i:(i+7), j:(j+7)) ./ quant)
         end
     end
@@ -158,7 +159,7 @@ function applyInverseQuantization(M::Matrix, quant::Matrix)
     """
     n, m = size(M)
 
-    convertedM = zeros(n,m)
+    convertedM = zeros(Float32, n, m)
 
     for i in 1:8:n-1
         for j in 1:8:m-1
@@ -225,7 +226,7 @@ end
 
 function _reconstruirMatrizDesdeZigzag(vect, n)
     """
-    Recibe matriz vector unidimensional de tamaño n^2, y retorna una matriz
+    Recibe vector unidimensional de tamaño n^2, y retorna una matriz
     de n x n con los valores leidos en zigzag.
     """
     
@@ -246,8 +247,8 @@ function compresion(M::Matrix)
    # c es el vector final de comrpesion
    c = []
    n, m = size(M)
-   for i in 1:8:n
-       for j in 1:8:m
+   for i in 1:8:n-1
+       for j in 1:8:m-1
          # Para cada submatriz de 8x8 aplicamos zigzag
          vals, reps = rle(_zigzag(M[i:i+7, j:j+7]))
          for k in 1:length(vals)
@@ -260,117 +261,124 @@ function compresion(M::Matrix)
 end
 
 
-function decompresion(c::Vector, n::UInt16, m::UInt16)
-   # c es el vector comprimido de la matriz 
-   # Separamos a la comrpesión en los respresentates de cada matriz de 8x8
-   subvect = []
-   sum = 0
-   j = 1
-
-   # Separamos en subvectores para cada submatriz de 8x8
-   for i in 1:length(c)
-      esRepeticiones = (i % 2 == 1)
-      seDebeCortar = (sum + c[i] == 64)
-      if esRepeticiones && seDebeCortar
-         sum = 0
-         push!(subvect, c[j:i+1])
-         j = i + 2
-      elseif esRepeticiones
-         sum = sum + c[i]
-      end   
-      
-   end
-
-   print("SUBVECT", subvect)
-   
-   submatrices = []
-   for vect in subvect
-      repeticion::Vector{Integer} = []
-      valor::Vector{Integer} = []
-
-      for num in 1:length(vect)
-          esRep = num % 2 == 1
-          if esRep
-              push!(repeticion, vect[num])
-          else
-              push!(valor, vect[num])
-          end
-      end
-      inverted_rle = inverse_rle(valor, repeticion)
-      push!(submatrices, _reconstruirMatrizDesdeZigzag(inverted_rle, 8))
-    end
-    print("HOLAA", size(subvect))
-    print("HOLAA", size(submatrices))
-
-    l = 1
-    M = zeros(Int8,n,m)
-    for i in 1:8:n-1
-       for j in 1:8:m-1
-         M[i:i+7, j:j+7] = submatrices[l]
-         l = l+1
-       end
-    end     
-
-    return M
-end
-
-# Parte Guardado
-
-function guardado(
-    n::UInt16,
-    m::UInt16, 
-    quant::Matrix{UInt8},
-    vectoresComprimidos::Vector{Vector{Int8}},
-    ruta::String
-)
-    io = open("$ruta.imc","a")
-    write(io,n)
-    write(io,m)
-
-    for i in 1:8 
-        for j in 1:8
-            write(io, quant[i,j])
-        end   
-    end
-
-    # Convierto los elementos de los vectores a string para facilitar luego la lectura    
-    for vector in vectoresComprimidos
-        cadena_vector = join(string.(vector), " ")
-        write(io, cadena_vector)
-        write(io, "|")
-    end
-
-    close(io)
-end
-
-function lectura(ruta::String)
-
-    io = open("$ruta.imc","r")
-
-    # Leer los dos primeros UInt16
-    n = read(io, UInt16)
-    m = read(io, UInt16)
+function decompresion(c::Vector, n::UInt16, m::UInt16)::Matrix{Float32}
+    # c es el vector comprimido de la matriz 
+    # Separamos a la comrpesión en los respresentates de cada matriz de 8x8
+    subvect = []
+    sum = 0
+    j = 1
  
-    # Leer la matriz de UInt8 de tamaño n x m
-    quant = transpose([read(io, UInt8) for _ in 1:8, _ in 1:8])
+    # Separamos en subvectores para cada submatriz de 8x8
+    for i in 1:length(c)
+       esRepeticiones = (i % 2 == 1)
+       seDebeCortar = (sum + c[i] == 64)
+       if esRepeticiones && seDebeCortar
+          sum = 0
+          push!(subvect, c[j:i+1])
+          j = i + 2
+       elseif esRepeticiones
+          sum = sum + c[i]
+       end   
+       
+    end
+    
+    submatrices = []
+    for (index, vect) in enumerate(subvect)
+       repeticion::Vector{Int8} = []
+       valor::Vector{Int8} = []
+ 
+       for num in 1:length(vect)
+           esRep = num % 2 == 1
+           if esRep
+               push!(repeticion, vect[num])
+           else
+               push!(valor, vect[num])
+           end
+       end
+       inverted_rle = inverse_rle(valor, repeticion)
+       original_matrix = _reconstruirMatrizDesdeZigzag(inverted_rle, 8)
+       push!(submatrices, original_matrix)
 
-    # Leer el resto del archivo como String
-    contenido_restante = read(io, String)
-    close(io)
-
-    # Dividir el contenido en vectores usando "|" como delimitador
-    partes = split(contenido_restante, "|")
-
-    # Convertir cada parte en un vector de Int8
-    vectores = []
-    for parte in partes
-        if !isempty(parte)
-            vector = [parse(Int8, strip(elemento)) for elemento in split(parte)]
-            push!(vectores, vector)
+       if index < 3
+        println(valor)
+        println(repeticion)
+        println(original_matrix)
+       end
+     end
+ 
+     l = 1
+     M = zeros(Int8,n,m)
+     for i in 1:8:n-1
+        for j in 1:8:m-1
+          M[i:i+7, j:j+7] = submatrices[l]
+          l = l+1
         end
+     end     
+ 
+     return Matrix{Float32}(M)
+ end
+ 
+ # Parte Guardado
+ 
+ function guardado(
+     n::UInt16,
+     m::UInt16, 
+     quant::Matrix{UInt8},
+     vectoresComprimidos::Vector{Vector{Int8}},
+     ruta::String
+ )
+    if isfile("$ruta.imc")
+        rm("$ruta.imc")
     end
 
-    compressedY, compressedCb, compressedCr = vectores
-
-    return n, m, quant, compressedY, compressedCb, compressedCr
+     io = open("$ruta.imc","a")
+     write(io,n)
+     write(io,m)
+ 
+     for i in 1:8 
+         for j in 1:8
+             write(io, quant[i,j])
+         end   
+     end
+ 
+     # Convierto los elementos de los vectores a string para facilitar luego la lectura    
+     for vector in vectoresComprimidos
+         cadena_vector = join(string.(vector), " ")
+         write(io, cadena_vector)
+         write(io, "|")
+     end
+ 
+     close(io)
  end
+ 
+ function lectura(ruta::String)
+ 
+     io = open("$ruta.imc","r")
+ 
+     # Leer los dos primeros UInt16
+     n = read(io, UInt16)
+     m = read(io, UInt16)
+  
+     # Leer la matriz de UInt8 de tamaño n x m
+     quant = transpose([read(io, UInt8) for _ in 1:8, _ in 1:8])
+ 
+     # Leer el resto del archivo como String
+     contenido_restante = read(io, String)
+     close(io)
+ 
+     # Dividir el contenido en vectores usando "|" como delimitador
+     partes = split(contenido_restante, "|")
+ 
+     # Convertir cada parte en un vector de Int8
+     vectores = []
+     for parte in partes
+         if !isempty(parte)
+             vector = [parse(Int8, strip(elemento)) for elemento in split(parte)]
+             push!(vectores, vector)
+         end
+     end
+ 
+     compressedY, compressedCb, compressedCr = vectores
+ 
+     return n, m, quant, compressedY, compressedCb, compressedCr
+  end
