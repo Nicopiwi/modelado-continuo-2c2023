@@ -1,5 +1,12 @@
 """
 TP2: Compresión de Imágenes
+
+Integrantes:
+
+- Nicolás Rozenberg
+- Mateo Cesaroni
+- Mateo Suffern
+
 """
 
 """
