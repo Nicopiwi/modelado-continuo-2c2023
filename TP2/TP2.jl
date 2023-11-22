@@ -12,6 +12,82 @@ using Statistics
 using .Colors
 using StatsBase
 
+"""
+Funciones principales
+"""
+
+function transformarImagen(path::String, savePath::String)
+    img = prepareImage(path)
+    quant = UInt8[
+        16 11 10 16 24 40 51 61;
+        12 12 14 19 26 58 60 55;
+        14 13 16 24 40 57 69 56;
+        14 17 22 29 51 87 80 62;
+        18 22 37 56 68 109 103 77;
+        24 35 55 64 81 104 113 92;
+        49 64 78 87 103 121 120 101;
+        72 92 95 98 112 100 103 99
+    ]
+    Y, Cb, Cr = pooling(img)
+    
+    # Aplicando transformaciones de coseno
+    applyTransform!(Y)
+	applyTransform!(Cb)
+	applyTransform!(Cr)
+
+    # Aplicando cuantización
+    applyQuantization!(Y, quant)
+	applyQuantization!(Cb, quant)
+	applyQuantization!(Cr, quant)
+
+    # Creando matrices comprimidas
+    compressedY = compresion(Y)
+	compressedCb = compresion(Cb)
+	compressedCr = compresion(Cr)
+    
+    n, m = size(Y)
+    guardado(
+        UInt16(n),
+        UInt16(m),
+        quant,
+        [
+            compressedY,
+            compressedCb,
+            compressedCr
+        ], savePath
+    )
+  end
+
+
+  function recuperarImagen(path::String)
+    n,
+    m,
+    quant,
+    iCompressedY, 
+    iCompressedCb, 
+    iCompressedCr = lectura(path)
+
+    iY = decompresion(iCompressedY, n, m)
+	iCb = decompresion(iCompressedCb, UInt16(n ÷ 2), UInt16(m ÷ 2))
+	iCr = decompresion(iCompressedCr, UInt16(n ÷ 2), UInt16(m ÷ 2))
+
+    # Aplicando cuantización inversa
+    iY = applyInverseQuantization(iY, quant)
+	iCb = applyInverseQuantization(iCb, quant)
+	iCr = applyInverseQuantization(iCr, quant)
+
+    # Aplicando transformación inversa
+    applyInverseTransform!(iY)
+	applyInverseTransform!(iCb)
+	applyInverseTransform!(iCr)
+    
+    return inversePooling(iY, iCb, iCr)
+  end
+
+  """
+  Funciones auxiliares
+  """
+
 function prepareImage(path::String)::Matrix{RGB{N0f8}}
     """
     Recibe: ruta del archivo
@@ -148,6 +224,7 @@ function applyQuantization!(M::Matrix, quant::Matrix)
             M[i:i+7, j:j+7] = view(M, i:(i+7), j:(j+7)) .÷ quant
         end
     end
+    M .= convert(Matrix{Int8}, M)
 end
 
 function applyInverseQuantization(M::Matrix, quant::Matrix)
@@ -299,18 +376,12 @@ function decompresion(c::Vector, n::UInt16, m::UInt16)::Matrix{Float32}
        inverted_rle = inverse_rle(valor, repeticion)
        original_matrix = _reconstruirMatrizDesdeZigzag(inverted_rle, 8)
        push!(submatrices, original_matrix)
-
-       if index < 2
-        println(valor)
-        println(repeticion)
-        print(_zigzag(original_matrix))
-       end
      end
  
      l = 1
      M = zeros(Int8,n,m)
-     for i in 1:8:n-1
-        for j in 1:8:m-1
+     for i in 1:8:n - 1
+        for j in 1:8:m - 1
           M[i:i+7, j:j+7] = submatrices[l]
           l = l+1
         end
@@ -322,133 +393,79 @@ function decompresion(c::Vector, n::UInt16, m::UInt16)::Matrix{Float32}
  # Parte Guardado
  
  function guardado(
-     n::UInt16,
-     m::UInt16, 
-     quant::Matrix{UInt8},
-     vectoresComprimidos::Vector{Vector{Int8}},
-     ruta::String
- )
-    if isfile("$ruta.imc")
-        rm("$ruta.imc")
+    n::UInt16,
+    m::UInt16,
+    quant::Matrix{UInt8},
+    vectoresComprimidos::Vector{Vector{Int8}},
+    ruta::String
+)
+    io = open("$ruta.imc","w")
+    write(io,UInt16(n))
+    write(io,UInt16(m))
+
+    for i in 1:8
+        for j in 1:8
+            write(io, UInt8(quant[i,j]))
+        end  
+    end
+   
+    for vector in vectoresComprimidos
+        for n in vector
+            write(io, Int8(n))
+        end
     end
 
-     io = open("$ruta.imc","a")
-     write(io,n)
-     write(io,m)
+    close(io)
+end
+
+function lectura(ruta::String)
+
+    io = open("$ruta.imc","r")
+
+    # Leer los dos primeros UInt16
+    n = read(io, UInt16)
+    m = read(io, UInt16)
  
-     for i in 1:8 
-         for j in 1:8
-             write(io, quant[i,j])
-         end   
-     end
- 
-     # Convierto los elementos de los vectores a string para facilitar luego la lectura    
-     for vector in vectoresComprimidos
-         cadena_vector = join(string.(vector), " ")
-         write(io, cadena_vector)
-         write(io, "|")
-     end
- 
-     close(io)
+    # Leer la matriz de UInt8 de tamaño n x m
+    quant = Matrix{UInt8}(transpose([read(io, UInt8) for _ in 1:8, _ in 1:8]))
+
+    compressedY = []
+    compressedCb = []
+    compressedCr = []
+    sum::Int64 = 0
+
+    while (sum < UInt32(n) * UInt32(m))
+        reps = read(io, Int8)
+        vals = read(io, Int8)
+        sum += reps
+       
+        push!(compressedY, reps)
+        push!(compressedY, vals)
+    end
+
+    sum = 0
+
+    while (sum < UInt32(n÷2) * UInt32(m÷2))
+        reps = read(io, Int8)
+        vals = read(io, Int8)
+        sum += reps
+       
+        push!(compressedCb, reps)
+        push!(compressedCb, vals)
+    end
+
+    sum = 0
+
+    while (sum < UInt32(n÷2) * UInt32(m÷2))
+        reps = read(io, Int8)
+        vals = read(io, Int8)
+        sum += reps
+       
+        push!(compressedCr, reps)
+        push!(compressedCr, vals)
+    end
+
+    close(io)
+
+    return n, m, quant, compressedY, compressedCb, compressedCr
  end
- 
- function lectura(ruta::String)
- 
-     io = open("$ruta.imc","r")
- 
-     # Leer los dos primeros UInt16
-     n = read(io, UInt16)
-     m = read(io, UInt16)
-  
-     # Leer la matriz de UInt8 de tamaño n x m
-     quant = Matrix{UInt8}(transpose([read(io, UInt8) for _ in 1:8, _ in 1:8]))
- 
-     # Leer el resto del archivo como String
-     contenido_restante = read(io, String)
-     close(io)
- 
-     # Dividir el contenido en vectores usando "|" como delimitador
-     partes = split(contenido_restante, "|")
- 
-     # Convertir cada parte en un vector de Int8
-     vectores = []
-     for parte in partes
-         if !isempty(parte)
-             vector = [parse(Int8, strip(elemento)) for elemento in split(parte)]
-             push!(vectores, vector)
-         end
-     end
- 
-     compressedY, compressedCb, compressedCr = vectores
- 
-     return n, m, quant, compressedY, compressedCb, compressedCr
-  end
-
-
-  function transformarImagen(path::String, savePath::String)
-    img = prepareImage(path)
-    quant = UInt8[
-        16 11 10 16 24 40 51 61;
-        12 12 14 19 26 58 60 55;
-        14 13 16 24 40 57 69 56;
-        14 17 22 29 51 87 80 62;
-        18 22 37 56 68 109 103 77;
-        24 35 55 64 81 104 113 92;
-        49 64 78 87 103 121 120 101;
-        72 92 95 98 112 100 103 99
-    ]
-    Y, Cb, Cr = pooling(img)
-    
-    # Aplicando transformaciones de coseno
-    applyTransform!(Y)
-	applyTransform!(Cb)
-	applyTransform!(Cr)
-
-    # Aplicando cuantización
-    applyQuantization!(Y, quant)
-	applyQuantization!(Cb, quant)
-	applyQuantization!(Cr, quant)
-
-    # Creando matrices comprimidas
-    compressedY = compresion(Y)
-	compressedCb = compresion(Cb)
-	compressedCr = compresion(Cr)
-    
-    n, m = size(Y)
-    guardado(
-        UInt16(n),
-        UInt16(m),
-        quant,
-        [
-            compressedY,
-            compressedCb,
-            compressedCr
-        ], savePath
-    )
-  end
-
-
-  function recuperarImagen(path::String)
-    n,
-    m,
-    quant,
-    iCompressedY, 
-    iCompressedCb, 
-    iCompressedCr = lectura(path)
-
-    iY = decompresion(iCompressedY, n, m)
-	iCb = decompresion(iCompressedCb, UInt16(n ÷ 2), UInt16(m ÷ 2))
-	iCr = decompresion(iCompressedCr, UInt16(n ÷ 2), UInt16(m ÷ 2))
-
-    # Aplicando cuantización inversa
-    iY = applyInverseQuantization(iY, quant)
-	iCb = applyInverseQuantization(iCb, quant)
-	iCr = applyInverseQuantization(iCr, quant)
-
-    # Aplicando transformación inversa
-    applyInverseTransform!(iY)
-	applyInverseTransform!(iCb)
-	applyInverseTransform!(iCr)
-    
-    return inversePooling(iY, iCb, iCr)
-  end
