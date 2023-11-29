@@ -23,26 +23,20 @@ using StatsBase
 Funciones principales
 """
 
-function transformarImagen(path::String)
+function transformarImagen(path::String, quant::Matrix{UInt8})
     """
-    Recibe: ruta del archivo
+    Recibe: 
+    
+    path: ruta del archivo
+    quant: Matriz de cuantización de tamaño 8x8
     
     Crea un archivo en formato .imc utilizando el algoritmo de codificación, en el mismo directorio
     que el archivo abierto y con el mismo nombre.
+    Despliega el tamaño del archivo creado y el de la imagen original, y la proporción
+    expresada en porcentaje
     """
     filename = join(split(path, ".")[1:end-1], ".")
     img = prepareImage(path)
-    
-    quant = UInt8[
-        16 11 10 16 24 40 51 61;
-        12 12 14 19 26 58 60 55;
-        14 13 16 24 40 57 69 56;
-        14 17 22 29 51 87 80 62;
-        18 22 37 56 68 109 103 77;
-        24 35 55 64 81 104 113 92;
-        49 64 78 87 103 121 120 101;
-        72 92 95 98 112 100 103 99
-    ]
     Y, Cb, Cr = pooling(img)
     
     # Aplicando transformaciones de coseno
@@ -72,12 +66,21 @@ function transformarImagen(path::String)
         ], 
         filename
     )
+    original_file_size = stat(path).size
+    new_file_size = stat("$filename.imc").size
+    proportion = 100*round(new_file_size/original_file_size, digits=3)
+    println("Nuevo archivo imc creado '$filename.imc'")
+    println("Peso del nuevo archivo $new_file_size bytes")
+    println("Peso imagen original $original_file_size bytes")
+    println("Proporción: $proportion%")
   end
 
 
   function recuperarImagen(path::String)
     """
-    Recibe: ruta del archivo, considerando implícita la extensión .imc
+    Recibe: 
+    
+    path: ruta del archivo, considerando implícita la extensión .imc
     
     Devuelve: Matriz RGB de la imagen decodificada.
     """
@@ -231,6 +234,20 @@ function applyInverseTransform!(M::Matrix)
     
 end
 
+function _convertir_a_Int8_seguramente!(matrix)
+    for i in eachindex(matrix)
+        value = matrix[i]
+        
+        if value > 127
+            matrix[i] = 127
+        elseif value < -128
+            matrix[i] = -128
+        else
+            matrix[i] = Int8(value)
+        end
+    end
+end
+
 function applyQuantization!(M::Matrix, quant::Matrix)
     """
     Recibe:
@@ -245,7 +262,7 @@ function applyQuantization!(M::Matrix, quant::Matrix)
             M[i:i+7, j:j+7] = view(M, i:(i+7), j:(j+7)) .÷ quant
         end
     end
-    M .= convert(Matrix{Int8}, M)
+    _convertir_a_Int8_seguramente!(M)
 end
 
 function applyInverseQuantization(M::Matrix, quant::Matrix)
