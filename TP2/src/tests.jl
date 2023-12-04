@@ -36,6 +36,7 @@ quant1 = UInt8[
 	]
 
 #Extraida de https://cs.stanford.edu/people/eroberts/courses/soco/projects/data-compression/lossy/jpeg/coeff.htm
+#Algunos valores se van de rango luego de aplicar la transformada de coseno y la cuantización. Esto se corrige asignándole el límite más cercano del valor al intervalo -128 a 127
 quant2 = UInt8[
         3 5 7 9 11 13 15 17;
         5 7 9 11 13 15 17 19;
