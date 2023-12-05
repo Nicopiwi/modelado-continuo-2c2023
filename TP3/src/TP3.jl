@@ -46,11 +46,6 @@ function metodo_explicito(tf, h, dt, alpha)
 end
 
 
-
-
-
-
-
 function metodo_implicito(tf, h, dt, alpha)
     """
     Recibe

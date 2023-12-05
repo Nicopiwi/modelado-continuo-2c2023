@@ -51,9 +51,13 @@ U_2d_filled_matrix = metodo_implicito_2d(1, h_x, h_y, dt_2, alpha_2)
 
 # ╔═╡ 0cc505a1-832b-40b8-b9a2-2039c080a1d1
 begin
+	#TODO: Corregir quedaron invertidos el x y el y (viene del source)
 	n, m_x, m_y = size(U_2d_filled_matrix)
 	anim_2d = @animate for i in 1:n
-		heatmap(U_2d_filled_matrix[i, :, :], clim=(0, 2))
+		heatmap(U_2d_filled_matrix[i, :, :], clim=(0, 2), 
+			xticks=(1:m_x, [string(round(i, digits=3)) for i in 0:h_x:1]), 
+			yticks=(1:m_y, [string(round(i, digits=3)) for i in 0:h_x:1])
+		)
 	end
 end
 
