@@ -1,8 +1,7 @@
 using LinearAlgebra
 using SparseArrays
-using BenchmarkTools
+using SparseArrays
 
-#TODO: Crear Notebook utilizando estas funciones
 
 function _construir_matriz_para_metodo_explicito(n, r)
     """
@@ -126,55 +125,7 @@ function _construir_matriz_llena_para_metodo_implicito_2d(n, m, r_x, r_y)
     return main_matrix
 end
 
-#Preguntar Igna como corregir N y M
-function _inital_heat_2d(n, m)
-    M = zeros(n, m)
-    M[(n÷3 + 1):2*(n÷3), (m÷3 + 1):2*(m÷3)] = 2*ones(n÷3, m÷3)
-
-    return M
-end
-
-#Cual es la g(x)?
-function metodo_implicito_2d(tf, h_x, h_y, dt, alpha)
-    """
-    Recibe
-
-    tf: Tiempo final
-    h_x: Paso en la dimension x
-    h_y: Paso en la dimension y
-    dt: Paso en el tiempo
-    alpha: Constante de difusividad
-    """
-
-    r_x = dt * alpha / (h_x^2)
-    r_y = dt * alpha / (h_y^2)
-    n = Int(tf ÷ dt)
-    m_x = Int((1 - 2*h_x) ÷ h_x) + 1
-    m_y = Int((1 - 2*h_y) ÷ h_y) + 1
-    M = _construir_matriz_llena_para_metodo_implicito_2d(m_x, m_y, r_x, r_y)
-    initial_heat = reshape(_inital_heat_2d(m_x, m_y), :)
-
-    U = zeros(n, m_x * m_y)
-    U[1, :] = initial_heat
-    descM = lu(M)
-
-    for i in 1:n-1
-        U[i+1, :] .= descM \ U[i, :]
-    end
-
-    U_definitiva = zeros(n, m_x + 2, m_y + 2)
-
-    for i in 1:n
-        #Preguntar a Igna
-        time_state = reshape(U[i, :], (m_x, m_y))
-        U_definitiva[i, 2:m_x+1, 2:m_y+1] .= time_state
-    end
-
-    return U_definitiva
-end
-
-#----------------------------------------------------
-function _construir_matriz_para_metodo_implicito_2d_v2(n, m, r_x, r_y, llena)
+function _construir_matriz_rala_para_metodo_implicito_2d(n, m, r_x, r_y)
     """
     Recibe
 
@@ -182,42 +133,34 @@ function _construir_matriz_para_metodo_implicito_2d_v2(n, m, r_x, r_y, llena)
     m: cantidad de pasos espaciales interiores en y
     r_x: coeficiente calculado como  dt * alpha / (h_x^2)
     r_y: coeficiente calculado como  dt * alpha / (h_y^2)
-    metodo = 'llena', 'rala'
     """
-
-    N = n*m
-    beta = 1 + 2*r_x + 2*r_y
+    N = n * m
+    beta = 1 + 2 * r_x + 2 * r_y
 
     # Matriz diagonal
     main_diag = fill(beta, n)
-    off_diag = fill(-r_x, n-1)
-    main_diag_matrix = Tridiagonal(off_diag, main_diag, off_diag)
+    off_diag = fill(-r_x, n - 1)
+    main_diag_matrix = spdiagm(-1 => off_diag, 0 => main_diag, 1 => off_diag)
 
     # Matriz subdiagonal
     main_diag = fill(-r_y, n)
-    subdiagonal_matrix = diagm(main_diag)
+    subdiagonal_matrix = spdiagm(0 => main_diag)
 
-    main_matrix = zeros(N, N)
+    main_matrix = spzeros(N, N)
 
-    for i in 1:n:N-1
-        for j in 1:n:N-1
+    for i in 1:n:N - 1
+        for j in 1:n:N - 1
             if i == j
-                main_matrix[i : i+n-1, j : j+n-1] = main_diag_matrix
-            elseif abs(i-j) == n
-                main_matrix[i : i+n-1, j : j+n-1] = subdiagonal_matrix
-            else
-                main_matrix[i : i+n-1, j : j+n-1] = zeros(n, n)
+                main_matrix[i:i + n - 1, j:j + n - 1] = main_diag_matrix
+            elseif abs(i - j) == n
+                main_matrix[i:i + n - 1, j:j + n - 1] = subdiagonal_matrix
             end
         end
     end
-    if llena
-        return main_matrix
-    else
-        return sparse(main_matrix)   
-    end     
+
+    return main_matrix
 end
 
-#Preguntar Igna como corregir N y M
 function _inital_heat_2d(n, m)
     M = zeros(n, m)
     M[(n÷3 + 1):2*(n÷3), (m÷3 + 1):2*(m÷3)] = 2*ones(n÷3, m÷3)
@@ -225,47 +168,136 @@ function _inital_heat_2d(n, m)
     return M
 end
 
-#Cual es la g(x)?
-function metodo_implicito_2d_v2(tf, h_x, h_y, dt, alpha, llena,Lu)
+function metodo_implicito_2d(tf, steps_x, steps_y, dt, alpha, llena, Lu)
     """
     Recibe
 
     tf: Tiempo final
-    h_x: Paso en la dimension x
-    h_y: Paso en la dimension y
+    steps_x: Cantidad de pasos interiores en la dimension x
+    steps_y: Cantidad de pasos interiores en la dimension y
     dt: Paso en el tiempo
     alpha: Constante de difusividad
     llena = True o False (en caso de falso es Rala)
-    Lu = true o false
+    LU = True o False (se debe precalcular descomposicion LU)
     """
 
+    h_x = 1 / (steps_x+1)
+    h_y = 1 / (steps_y+1)
     r_x = dt * alpha / (h_x^2)
     r_y = dt * alpha / (h_y^2)
     n = Int(tf ÷ dt)
-    m_x = Int((1 - 2*h_x) ÷ h_x) + 1
-    m_y = Int((1 - 2*h_y) ÷ h_y) + 1
-    M = _construir_matriz_para_metodo_implicito_2d_v2(m_x, m_y, r_x, r_y,llena)
-    initial_heat = reshape(_inital_heat_2d(m_x, m_y), :)
 
-    U = zeros(n, m_x * m_y)
-    U[1, :] = initial_heat
-    # decide si calcular LU o no
-    if Lu
-       descM = lu(M)
+    if llena
+        M = _construir_matriz_llena_para_metodo_implicito_2d(steps_x, steps_y, r_x, r_y)
     else
-       descM = M
-    end      
+        M = _construir_matriz_rala_para_metodo_implicito_2d(steps_x, steps_y, r_x, r_y)
+    end
+    initial_heat = _inital_heat_2d(steps_x, steps_y)[:]
+
+    U = zeros(n, steps_x * steps_y)
+    U[1, :] = initial_heat
+    
+    if Lu
+        descM = lu(M)
+     else
+        descM = M
+     end   
 
     for i in 1:n-1
         U[i+1, :] .= descM \ U[i, :]
     end
 
-    U_definitiva = zeros(n, m_x + 2, m_y + 2)
+    U_definitiva = zeros(n, steps_x + 2, steps_y + 2)
 
     for i in 1:n
-        #Preguntar a Igna
-        time_state = reshape(U[i, :], (m_x, m_y))
-        U_definitiva[i, 2:m_x+1, 2:m_y+1] .= time_state
+        time_state = reshape(U[i, :], (steps_x, steps_y))
+        U_definitiva[i, 2:steps_x+1, 2:steps_y+1] .= time_state
+    end
+
+    return U_definitiva
+end
+
+
+function _construir_matriz_rala_para_difusion_transporte(n, r, s)
+    """
+    Recibe
+
+    n: cantidad de pasos espaciales en cada dimension
+    r: coeficiente calculado como  dt * alpha / (h ^ 2)
+    s: coeficiente calculado como dt * beta / 2 * h
+
+    Considera el paso espacial como el mismo en ambas dimensiones
+    """
+    N = (n + 1) * n
+
+    # Matriz diagonal
+    main_diag = fill(1 + 4*r, n + 1)
+    off_lower_diag = fill(-r+s, n)
+    off_upper_diag = fill(-r-s, n)
+    main_diag_matrix = spdiagm(-1 => off_lower_diag, 0 => main_diag, 1 => off_upper_diag)
+    main_diag_matrix[1, end] = -r + s
+    main_diag_matrix[end, 1] = -r - s
+
+
+    # Matriz subdiagonal
+    main_diag = fill(-r, n + 1)
+    subdiagonal_matrix = spdiagm(0 => main_diag)
+
+    main_matrix = spzeros(N, N)
+
+    for i in 1:n+1:N - 1
+        for j in 1:n+1:N - 1
+            if i == j
+                main_matrix[i:i + n, j:j + n] = main_diag_matrix
+            elseif abs(i - j) == n + 1
+                if (i == 1 && j == n + 2 || i == N - (n + 1) + 1 && j == N - 2 * (n + 1) + 1)     
+                    main_matrix[i:i + n, j:j + n] = 2*subdiagonal_matrix
+                else
+                    main_matrix[i:i + n, j:j + n] = subdiagonal_matrix
+                end
+            end
+        end
+    end
+
+    return main_matrix
+end
+
+
+function metodo_implicito_problema_transporte_2d(tf, steps, dt, alpha, beta)
+    """
+    Recibe
+
+    tf: Tiempo final
+    steps: Cantidad de pasos interiores en cada dimension espacial
+    dt: Paso en el tiempo
+    alpha: Constante de difusividad
+    beta: Constante de transporte
+    """
+
+    h = 1 / (steps + 1)
+    r = dt * alpha / (h^2)
+    s = beta * dt / (2 * h)
+    n = Int(tf ÷ dt)
+
+    M = _construir_matriz_rala_para_difusion_transporte(steps, r, s)
+    initial_heat = _inital_heat_2d(steps + 1, steps)[:]
+
+    U = zeros(n, (steps + 1) * steps)
+    U[1, :] = initial_heat
+    descM = lu(M)  
+
+    for i in 1:n-1
+        U[i+1, :] .= descM \ U[i, :]
+    end
+
+    U_definitiva = zeros(n, steps + 2, steps + 2)
+
+    for i in 1:n
+        time_state = reshape(U[i, :], (steps + 1, steps))
+        U_definitiva[i, 1:steps+1, 1:steps] .= time_state
+
+        # Copiamos la primera columna por simetría
+        U_definitiva[i, 1:steps+1, steps+1] = U_definitiva[i, 1:steps+1, 1]
     end
 
     return U_definitiva
