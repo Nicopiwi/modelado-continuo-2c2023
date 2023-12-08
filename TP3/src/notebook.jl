@@ -25,28 +25,31 @@ md"""
 """
 
 # ╔═╡ 2ed1733a-a4a1-4f5f-9757-20206decd63c
-begin
-	n2 = 100
-	m2 = 100
-	h = 1/(m2+1)
-	dt = 1/n2
-	alpha = (1/2) * h^2 / dt
+function probar_metodo_explicito_1d()
+	n = 50
+	ms = [10, 30, 60]
+	dt = 1/n
+	hs = [1/(m+1) for m in ms]
+	alphas = [(1/2) * h^2 / dt for h in hs]
 
-	U_explicit = metodo_explicito(1, n2, m2, alpha)
+	sols = [
+		metodo_explicito(1, n, ms[i], alphas[i]) for i in 1:3
+	]
+
+	anim = @animate for i in 1:n
+			plot(0:hs[1]:1, sols[1][i, :], ylim=(0, 1), label="Calor en función al espacio 1")
+			plot!(0:hs[2]:1, sols[2][i, :], ylim=(0, 1), label="Calor en función al espacio 2")
+			plot!(0:hs[3]:1, sols[3][i, :], ylim=(0, 1), label="Calor en función al espacio 3")
+		end
+
+	return anim
 end
 
-# ╔═╡ d6f19fa3-75ba-4fea-929f-6b2fc48fc099
-
-
-# ╔═╡ 5e150598-7fe8-4e82-a6d8-b1f833dc4569
-begin 
-	anim = @animate for u in eachrow(U_explicit)
-		plot(u, ylim=(0, 1), label="Calor en función al espacio")
-	end
-end
+# ╔═╡ 58e315d2-4645-4376-80b7-19d6d2d31517
+anim = probar_metodo_explicito_1d()
 
 # ╔═╡ d30b2b48-7f0c-40f7-8bd0-b908f4d16aed
-gif(anim, "graph_animation.gif", fps = 100)
+gif(anim, "graph_animation_metodo_explicito_1d.gif", fps = 50)
 
 # ╔═╡ cc8ea44b-60aa-4e3b-80f0-9e161f77923a
 begin
@@ -58,8 +61,7 @@ end
 
 # ╔═╡ 1ca37473-919c-4be5-bbde-abe6b79ab3fd
 begin
-	time = @btime U_2d_filled_matrix = metodo_implicito_2d(1, steps_x, steps_y, dt_2, alpha_2, false, true)
-	print(time)
+	U_2d_filled_matrix = metodo_implicito_2d(1, steps_x, steps_y, dt_2, alpha_2, false, true)
 end
 
 # ╔═╡ 0cc505a1-832b-40b8-b9a2-2039c080a1d1
@@ -100,8 +102,7 @@ gif(anim_2d_transform, "graph_animation-2d.gif", fps = 2)
 # ╠═6d7e7e0e-e6e4-4fa8-808b-1ec500a4495d
 # ╟─291b3ea8-163e-44d8-85d8-8ec02189206b
 # ╠═2ed1733a-a4a1-4f5f-9757-20206decd63c
-# ╠═d6f19fa3-75ba-4fea-929f-6b2fc48fc099
-# ╠═5e150598-7fe8-4e82-a6d8-b1f833dc4569
+# ╠═58e315d2-4645-4376-80b7-19d6d2d31517
 # ╠═d30b2b48-7f0c-40f7-8bd0-b908f4d16aed
 # ╠═cc8ea44b-60aa-4e3b-80f0-9e161f77923a
 # ╠═1ca37473-919c-4be5-bbde-abe6b79ab3fd
