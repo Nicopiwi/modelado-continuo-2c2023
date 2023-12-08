@@ -1,6 +1,5 @@
 using LinearAlgebra
 using SparseArrays
-using SparseArrays
 
 
 function _construir_matriz_para_metodo_explicito(n, r)
@@ -95,7 +94,7 @@ function _construir_matriz_para_metodo_implicito(n, r)
     """
     main_diag = fill(1 + 2r, n)
     off_diag = fill(-r, n-1)
-    tridiag_matrix = Tridiagonal(off_diag, main_diag, off_diag)
+    tridiag_matrix = spdiagm(-1 => off_diag, 0 => main_diag, 1 => off_diag)
 
     return tridiag_matrix
 end

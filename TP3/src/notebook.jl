@@ -21,13 +21,13 @@ end
 
 # ╔═╡ 291b3ea8-163e-44d8-85d8-8ec02189206b
 md""" 
-## Utils
+## Método Explícito 1D
 """
 
 # ╔═╡ 2ed1733a-a4a1-4f5f-9757-20206decd63c
 function probar_metodo_explicito_1d()
-	n = 50
-	ms = [10, 30, 60]
+	n = 75
+	ms = [10, 30, 100]
 	dt = 1/n
 	hs = [1/(m+1) for m in ms]
 	alphas = [(1/2) * h^2 / dt for h in hs]
