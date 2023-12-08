@@ -17,19 +17,25 @@ function _construir_matriz_para_metodo_explicito(n, r)
     return tridiag_matrix
 end
 
-function metodo_explicito(tf, h, dt, alpha)
+function metodo_explicito(tf, n, m, alpha)
     """
+    Resuelve la ecuación del calor homogénea unidimensional con condiciones de contorno Dirichlet 
+    nulas en [0, 1] y condición inicial g(x) = x si x ∉ {0, 1}, g(0) = g(1) = 0
+
     Recibe
 
     tf: Tiempo final
-    h: Paso en el espacio
-    dt: Paso en el tiempo
+    n: Cantidad de pasos en el tiempo
+    m: Cantidad de pasos interiores en el espacio
     alpha: Constante de difusividad
+
+    Devuelve
+    U: Solución discretizada. U[i, j] representa la solución en el paso i de tiempo, en el paso j del espacio.
     """
 
+    dt = tf / n
+    h = 1 / (m + 1)
     r = dt * alpha / (h^2)
-    n = Int(tf / dt)
-    m = Int((1 - 2h) / h) + 1
     M = _construir_matriz_para_metodo_explicito(m, r)
     U = zeros(n, m)
 
@@ -45,19 +51,27 @@ function metodo_explicito(tf, h, dt, alpha)
 end
 
 
-function metodo_implicito(tf, h, dt, alpha)
+function metodo_implicito(tf, n, m, alpha)
     """
     Recibe
 
+    Resuelve la ecuación del calor homogénea unidimensional con condiciones de contorno Dirichlet 
+    nulas en [0, 1] y condición inicial g(x) = x si x ∉ {0, 1}, g(0) = g(1) = 0
+
+    Recibe
+
     tf: Tiempo final
-    h: Paso en el espacio
-    dt: Paso en el tiempo
+    n: Cantidad de pasos en el tiempo
+    m: Cantidad de pasos interiores en el espacio
     alpha: Constante de difusividad
+
+    Devuelve
+    U: Solución discretizada. U[i, j] representa la solución en el paso i de tiempo, en el paso j del espacio.
     """
 
+    dt = tf / n
+    h = 1 / (m + 1)
     r = dt * alpha / (h^2)
-    n = Int(tf / dt)
-    m = Int((1 - 2h) / h) + 1
     M = _construir_matriz_para_metodo_implicito(m, r)
     U = zeros(n, m)
 
@@ -168,33 +182,33 @@ function _inital_heat_2d(n, m)
     return M
 end
 
-function metodo_implicito_2d(tf, steps_x, steps_y, dt, alpha, llena, Lu)
+function metodo_implicito_2d(tf, steps_space_x, steps_space_y, dt, alpha, llena, Lu)
     """
     Recibe
 
     tf: Tiempo final
-    steps_x: Cantidad de pasos interiores en la dimension x
-    steps_y: Cantidad de pasos interiores en la dimension y
+    steps_space_x: Cantidad de pasos interiores en la dimension x
+    steps_space_y: Cantidad de pasos interiores en la dimension y
     dt: Paso en el tiempo
     alpha: Constante de difusividad
     llena = True o False (en caso de falso es Rala)
     LU = True o False (se debe precalcular descomposicion LU)
     """
 
-    h_x = 1 / (steps_x+1)
-    h_y = 1 / (steps_y+1)
+    h_x = 1 / (steps_space_x+1)
+    h_y = 1 / (steps_space_y+1)
     r_x = dt * alpha / (h_x^2)
     r_y = dt * alpha / (h_y^2)
     n = Int(tf ÷ dt)
 
     if llena
-        M = _construir_matriz_llena_para_metodo_implicito_2d(steps_x, steps_y, r_x, r_y)
+        M = _construir_matriz_llena_para_metodo_implicito_2d(steps_space_x, steps_space_y, r_x, r_y)
     else
-        M = _construir_matriz_rala_para_metodo_implicito_2d(steps_x, steps_y, r_x, r_y)
+        M = _construir_matriz_rala_para_metodo_implicito_2d(steps_space_x, steps_space_y, r_x, r_y)
     end
-    initial_heat = _inital_heat_2d(steps_x, steps_y)[:]
+    initial_heat = _inital_heat_2d(steps_space_x, steps_space_y)[:]
 
-    U = zeros(n, steps_x * steps_y)
+    U = zeros(n, steps_space_x * steps_space_y)
     U[1, :] = initial_heat
     
     if Lu
@@ -207,11 +221,11 @@ function metodo_implicito_2d(tf, steps_x, steps_y, dt, alpha, llena, Lu)
         U[i+1, :] .= descM \ U[i, :]
     end
 
-    U_definitiva = zeros(n, steps_x + 2, steps_y + 2)
+    U_definitiva = zeros(n, steps_space_x + 2, steps_space_y + 2)
 
     for i in 1:n
-        time_state = reshape(U[i, :], (steps_x, steps_y))
-        U_definitiva[i, 2:steps_x+1, 2:steps_y+1] .= time_state
+        time_state = reshape(U[i, :], (steps_space_x, steps_space_y))
+        U_definitiva[i, 2:steps_space_x+1, 2:steps_space_y+1] .= time_state
     end
 
     return U_definitiva
@@ -250,7 +264,10 @@ function _construir_matriz_rala_para_difusion_transporte(n, r, s)
             if i == j
                 main_matrix[i:i + n, j:j + n] = main_diag_matrix
             elseif abs(i - j) == n + 1
-                if (i == 1 && j == n + 2 || i == N - (n + 1) + 1 && j == N - 2 * (n + 1) + 1)     
+                if (
+                    i == 1 && j == n + 2 
+                    || i == N - (n + 1) + 1 && j == N - 2 * (n + 1) + 1
+                )     
                     main_matrix[i:i + n, j:j + n] = 2*subdiagonal_matrix
                 else
                     main_matrix[i:i + n, j:j + n] = subdiagonal_matrix
@@ -263,26 +280,26 @@ function _construir_matriz_rala_para_difusion_transporte(n, r, s)
 end
 
 
-function metodo_implicito_problema_transporte_2d(tf, steps, dt, alpha, beta)
+function metodo_implicito_problema_transporte_2d(tf, steps_space, dt, alpha, beta)
     """
     Recibe
 
     tf: Tiempo final
-    steps: Cantidad de pasos interiores en cada dimension espacial
+    steps_space: Cantidad de pasos interiores en cada dimension espacial
     dt: Paso en el tiempo
     alpha: Constante de difusividad
     beta: Constante de transporte
     """
 
-    h = 1 / (steps + 1)
+    h = 1 / (steps_space + 1)
     r = dt * alpha / (h^2)
     s = beta * dt / (2 * h)
     n = Int(tf ÷ dt)
 
-    M = _construir_matriz_rala_para_difusion_transporte(steps, r, s)
-    initial_heat = _inital_heat_2d(steps + 1, steps)[:]
+    M = _construir_matriz_rala_para_difusion_transporte(steps_space, r, s)
+    initial_heat = _inital_heat_2d(steps_space + 1, steps_space)[:]
 
-    U = zeros(n, (steps + 1) * steps)
+    U = zeros(n, (steps_space + 1) * steps_space)
     U[1, :] = initial_heat
     descM = lu(M)  
 
@@ -290,14 +307,14 @@ function metodo_implicito_problema_transporte_2d(tf, steps, dt, alpha, beta)
         U[i+1, :] .= descM \ U[i, :]
     end
 
-    U_definitiva = zeros(n, steps + 2, steps + 2)
+    U_definitiva = zeros(n, steps_space + 2, steps_space + 2)
 
     for i in 1:n
-        time_state = reshape(U[i, :], (steps + 1, steps))
-        U_definitiva[i, 1:steps+1, 1:steps] .= time_state
+        time_state = reshape(U[i, :], (steps_space + 1, steps_space))
+        U_definitiva[i, 1:steps_space+1, 1:steps_space] .= time_state
 
         # Copiamos la primera columna por simetría
-        U_definitiva[i, 1:steps+1, steps+1] = U_definitiva[i, 1:steps+1, 1]
+        U_definitiva[i, 1:steps_space+1, steps_space+1] = U_definitiva[i, 1:steps_space+1, 1]
     end
 
     return U_definitiva
