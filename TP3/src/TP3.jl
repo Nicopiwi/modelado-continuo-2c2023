@@ -35,7 +35,7 @@ function metodo_explicito(tf, n, m, alpha)
     dt = tf / n
     h = 1 / (m + 1)
     r = dt * alpha / (h^2)
-    M = _construir_matriz_para_metodo_explicito(m, r)
+    M = _construir_matriz_para_metodo_explicito(m, r)  # aca va un m y en la otra un n
     U = zeros(n, m)
 
     for i in 1:n
@@ -73,13 +73,14 @@ function metodo_implicito(tf, n, m, alpha)
     r = dt * alpha / (h^2)
     M = _construir_matriz_para_metodo_implicito(m, r)
     U = zeros(n, m)
+    descM = lu(M)
 
     for i in 1:n
         U[i, :] .= range(h, stop=1-h, step=h)
     end
 
     for i in 1:n-1
-        U[i+1, :] .= *(M, U[i, :])
+        U[i+1, :] .= descM \ U[i, :]
     end
 
     return hcat(zeros(n), U, zeros(n))
