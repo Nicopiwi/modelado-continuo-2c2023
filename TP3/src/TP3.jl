@@ -35,7 +35,7 @@ function metodo_explicito(tf, n, m, alpha)
     dt = tf / n
     h = 1 / (m + 1)
     r = dt * alpha / (h^2)
-    M = _construir_matriz_para_metodo_explicito(m, r)
+    M = _construir_matriz_para_metodo_explicito(m, r)  # aca va un m y en la otra un n
     U = zeros(n, m)
 
     for i in 1:n
@@ -72,13 +72,14 @@ function metodo_implicito(tf, n, m, alpha)
     r = dt * alpha / (h^2)
     M = _construir_matriz_para_metodo_implicito(m, r)
     U = zeros(n, m)
+    descM = lu(M)
 
     for i in 1:n
         U[i, :] .= range(h, stop=1-h, step=h)
     end
 
     for i in 1:n-1
-        U[i+1, :] .= *(M, U[i, :])
+        U[i+1, :] .= descM \ U[i, :]
     end
 
     return hcat(zeros(n), U, zeros(n))
@@ -275,6 +276,22 @@ function _construir_matriz_rala_para_difusion_transporte(n, r, s)
     return main_matrix
 end
 
+function _condicion_inicial_transporte(n, m)
+    matriz = zeros(n, m)
+    centro_n, centro_m = cld(n, 2), cld(m, 2)
+    radio = min(cld(n, 4), cld(m, 4))
+
+    for i in 1:n
+        for j in 1:m
+            if (i - centro_n)^2 + (j - centro_m)^2 <= radio^2
+                matriz[i, j] = 1
+            end
+        end
+    end
+
+    return matriz
+end
+
 
 function metodo_implicito_problema_transporte_2d(tf, steps_space, n, alpha, beta)
     """
@@ -293,7 +310,7 @@ function metodo_implicito_problema_transporte_2d(tf, steps_space, n, alpha, beta
     s = beta * dt / (2 * h)
 
     M = _construir_matriz_rala_para_difusion_transporte(steps_space, r, s)
-    initial_heat = _inital_heat_2d(steps_space + 1, steps_space)[:]
+    initial_heat = _condicion_inicial_transporte(steps_space + 1, steps_space)[:]
 
     U = zeros(n, (steps_space + 1) * steps_space)
     U[1, :] = initial_heat
