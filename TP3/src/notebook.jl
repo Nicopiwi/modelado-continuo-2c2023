@@ -51,18 +51,34 @@ anim = probar_metodo_explicito_1d()
 # ╔═╡ d30b2b48-7f0c-40f7-8bd0-b908f4d16aed
 gif(anim, "graph_animation_metodo_explicito_1d.gif", fps = 50)
 
-# ╔═╡ cc8ea44b-60aa-4e3b-80f0-9e161f77923a
-begin
-	steps_x = 100
-	steps_y = 50
-	dt_2 = 0.05
-	alpha_2 = (1/2) * ((1/steps_x)^2 + (1/steps_y)^2) / dt
+# ╔═╡ b258f0ca-036a-4013-867c-820936878fc5
+function comparar_tiempos_ejecucion_ecuacion_calor()
+	steps_x = 10
+	steps_y = 10
+	n = 20
+	dt = 1/n
+	alpha = (1/2) * ((1/steps_x)^2 + (1/steps_y)^2) / dt
+	
+	println("Tiempo de ejecución del cálculo de solucion utilizando una matriz rala, y precalculando descomposición LU")
+	ex_time, _ = @btime metodo_implicito_2d(1, $steps_x, $steps_y, $n, $alpha, llena=false, LU=true)
+	println(ex_time)
+
+	println("Tiempo de ejecución del cálculo de solucion utilizando una matriz rala, sin precalcular descomposición LU")
+	ex_time, _ = @btime metodo_implicito_2d(1, $steps_x, $steps_y, $n, $alpha, llena=false, LU=false)
+	println(ex_time)
+
+	println("Tiempo de ejecución del cálculo de solucion utilizando una matriz llena, y precalculando descomposición LU")
+	ex_time, _ = @btime metodo_implicito_2d(1, $steps_x, $steps_y, $n, $alpha, llena=true, LU=true)
+	println(ex_time)
+
+	println("Tiempo de ejecución del cálculo de solucion utilizando una matriz llena, sin precalcular descomposición LU")
+	ex_time, _ = @btime metodo_implicito_2d(1, $steps_x, $steps_y, $n, $alpha, llena=true, LU=false)
+	println(ex_time)
+	
 end
 
-# ╔═╡ 1ca37473-919c-4be5-bbde-abe6b79ab3fd
-begin
-	U_2d_filled_matrix = metodo_implicito_2d(1, steps_x, steps_y, dt_2, alpha_2, false, true)
-end
+# ╔═╡ 9802ff27-f4a2-4def-a9b2-96881842ef14
+comparar_tiempos_ejecucion_ecuacion_calor()
 
 # ╔═╡ 0cc505a1-832b-40b8-b9a2-2039c080a1d1
 begin
@@ -104,8 +120,8 @@ gif(anim_2d_transform, "graph_animation-2d.gif", fps = 2)
 # ╠═2ed1733a-a4a1-4f5f-9757-20206decd63c
 # ╠═58e315d2-4645-4376-80b7-19d6d2d31517
 # ╠═d30b2b48-7f0c-40f7-8bd0-b908f4d16aed
-# ╠═cc8ea44b-60aa-4e3b-80f0-9e161f77923a
-# ╠═1ca37473-919c-4be5-bbde-abe6b79ab3fd
+# ╠═b258f0ca-036a-4013-867c-820936878fc5
+# ╠═9802ff27-f4a2-4def-a9b2-96881842ef14
 # ╠═0cc505a1-832b-40b8-b9a2-2039c080a1d1
 # ╠═8f7865b1-e36d-4f4d-9f36-c76b9d4ac3e8
 # ╠═77c94803-2216-4019-9e87-fcdecd018d17

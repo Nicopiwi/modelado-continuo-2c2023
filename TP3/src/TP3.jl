@@ -52,7 +52,6 @@ end
 
 function metodo_implicito(tf, n, m, alpha)
     """
-    Recibe
 
     Resuelve la ecuación del calor homogénea unidimensional con condiciones de contorno Dirichlet 
     nulas en [0, 1] y condición inicial g(x) = x si x ∉ {0, 1}, g(0) = g(1) = 0
@@ -181,24 +180,24 @@ function _inital_heat_2d(n, m)
     return M
 end
 
-function metodo_implicito_2d(tf, steps_space_x, steps_space_y, dt, alpha, llena, Lu)
+function metodo_implicito_2d(tf, steps_space_x, steps_space_y, n, alpha; llena=false, LU=true)
     """
     Recibe
 
     tf: Tiempo final
     steps_space_x: Cantidad de pasos interiores en la dimension x
     steps_space_y: Cantidad de pasos interiores en la dimension y
-    dt: Paso en el tiempo
+    n: Cantidad de pasos en el tiempo
     alpha: Constante de difusividad
-    llena = True o False (en caso de falso es Rala)
-    LU = True o False (se debe precalcular descomposicion LU)
+    llena = true o false (en caso de falso es Rala)
+    LU = true o false (se debe precalcular descomposicion LU)
     """
 
+    dt = tf / n
     h_x = 1 / (steps_space_x+1)
     h_y = 1 / (steps_space_y+1)
     r_x = dt * alpha / (h_x^2)
     r_y = dt * alpha / (h_y^2)
-    n = Int(tf ÷ dt)
 
     if llena
         M = _construir_matriz_llena_para_metodo_implicito_2d(steps_space_x, steps_space_y, r_x, r_y)
@@ -210,7 +209,7 @@ function metodo_implicito_2d(tf, steps_space_x, steps_space_y, dt, alpha, llena,
     U = zeros(n, steps_space_x * steps_space_y)
     U[1, :] = initial_heat
     
-    if Lu
+    if LU
         descM = lu(M)
      else
         descM = M
@@ -238,8 +237,6 @@ function _construir_matriz_rala_para_difusion_transporte(n, r, s)
     n: cantidad de pasos espaciales en cada dimension
     r: coeficiente calculado como  dt * alpha / (h ^ 2)
     s: coeficiente calculado como dt * beta / 2 * h
-
-    Considera el paso espacial como el mismo en ambas dimensiones
     """
     N = (n + 1) * n
 
@@ -279,21 +276,21 @@ function _construir_matriz_rala_para_difusion_transporte(n, r, s)
 end
 
 
-function metodo_implicito_problema_transporte_2d(tf, steps_space, dt, alpha, beta)
+function metodo_implicito_problema_transporte_2d(tf, steps_space, n, alpha, beta)
     """
     Recibe
 
     tf: Tiempo final
     steps_space: Cantidad de pasos interiores en cada dimension espacial
-    dt: Paso en el tiempo
+    n: Cantidad de pasos en el tiempo
     alpha: Constante de difusividad
     beta: Constante de transporte
     """
 
+    dt = tf / n
     h = 1 / (steps_space + 1)
     r = dt * alpha / (h^2)
     s = beta * dt / (2 * h)
-    n = Int(tf ÷ dt)
 
     M = _construir_matriz_rala_para_difusion_transporte(steps_space, r, s)
     initial_heat = _inital_heat_2d(steps_space + 1, steps_space)[:]
