@@ -211,13 +211,6 @@ function _construir_matriz_rala_para_metodo_implicito_2d(n, m, r_x, r_y)
     return main_matrix
 end
 
-function _inital_heat_2d(n, m)
-    M = zeros(n, m)
-    M[(n÷3 + 1):2*(n÷3), (m÷3 + 1):2*(m÷3)] = 2*ones(n÷3, m÷3)
-
-    return M
-end
-
 function metodo_implicito_2d(tf, steps_space_x, steps_space_y, n, alpha, condicion_inicial; llena=false, LU=true)
     """
     Resuelve la ecuación del calor homogénea unidimensional con condiciones de contorno Dirichlet 
@@ -327,23 +320,6 @@ function _construir_matriz_rala_para_difusion_transporte(n, r, s)
 
     return main_matrix
 end
-
-function _condicion_inicial_transporte(n, m)
-    matriz = zeros(n, m)
-    centro_n, centro_m = cld(n, 2), cld(m, 2)
-    radio = min(cld(n, 4), cld(m, 4))
-
-    for i in 1:n
-        for j in 1:m
-            if (i - centro_n)^2 + (j - centro_m)^2 <= radio^2
-                matriz[i, j] = 1
-            end
-        end
-    end
-
-    return matriz
-end
-
 
 function metodo_implicito_problema_transporte_2d(tf, steps_space, n, alpha, beta, condicion_inicial)
     """

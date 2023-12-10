@@ -36,9 +36,9 @@ function probar_metodo_explicito_1d()
 	]
 
 	anim = @animate for i in 1:n
-			plot(0:hs[1]:1, sols[1][i, :], ylim=(0, 1), label="Calor en función al espacio 1")
-			plot!(0:hs[2]:1, sols[2][i, :], ylim=(0, 1), label="Calor en función al espacio 2")
-			plot!(0:hs[3]:1, sols[3][i, :], ylim=(0, 1), label="Calor en función al espacio 3")
+			plot(0:hs[1]:1, sols[1][i, :], ylim=(0, 1), label="Calor en función del espacio 1")
+			plot!(0:hs[2]:1, sols[2][i, :], ylim=(0, 1), label="Calor en función del espacio 2")
+			plot!(0:hs[3]:1, sols[3][i, :], ylim=(0, 1), label="Calor en función del espacio 3")
 		end
 	return anim
 end
@@ -235,7 +235,7 @@ md"""
 # ╔═╡ 48fa3df0-a8b7-4ef4-b12d-9038a04593f3
 function probar_metodo_implicito_difusion_con_transporte_2d()
 	steps_space = 80
-	n = 100
+	n = 200
 	dt = 1/n
 	condicion_inicial = _condicion_inicial_circular(steps_space + 1, steps_space)
 
@@ -260,7 +260,7 @@ end
 anim_2d_transport = probar_metodo_implicito_difusion_con_transporte_2d()
 
 # ╔═╡ 125ae9ad-5570-451a-a7bf-e6ba75946310
-gif(anim_2d_transport, "graph_animation-transport-2d.gif", fps = 10)
+gif(anim_2d_transport, "graph_animation-transport-2d.gif", fps = 20)
 
 # ╔═╡ Cell order:
 # ╠═c8561f88-916c-11ee-19bb-850b3ffa37d8
